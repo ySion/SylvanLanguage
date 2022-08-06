@@ -1015,10 +1015,12 @@ private:
 		if (statementList.size() == 1) {
 			return SingleStatementSegmentSolver(statementList[0]);
 		}
-		else if (statementList.size() == 2 && recursionDepth == 0) { //自增自减运算符
+		else if (statementList.size() == 2 && recursionDepth == 0 && (statementList[1].iToken.m_Desc == SlgRuleTable::e_SlgTokenDesc::SELFADD || statementList[1].iToken.m_Desc == SlgRuleTable::e_SlgTokenDesc::SELFSUB)) { //自增自减运算符
+
 			return statementList[0];
 		}
 		else if (hasAssignmentOperator) {
+
 			//有赋值语句
 			s_StatementSegment B = ExprSolverCall(minProp, maxProp, minProp, statementList, 2, statementList.size() - 1);
 			s_StatementSegment A = VariableSolver(statementList[0]);
@@ -1100,6 +1102,7 @@ private:
 
 		if (currentprop == 14 && items[start].iType == 5 && items[start].iToken.IsUnaryOperator()) { //一元运算符
 			size_t next = start + 1;
+
 			s_StatementSegment val = SingleStatementSegmentSolver(items[next]);
 			return SovlerAsmUnaryOperator(items[start], val);
 		}
@@ -1274,7 +1277,7 @@ private:
 
 		//函数执行
 		for (size_t i = 0; i < cArgs.size(); ++i) {
-			s_StatementSegment temp = ExprSolver(cArgs[i].first, cArgs[i].second);
+			s_StatementSegment temp = ExprSolver(cArgs[i].first, cArgs[i].second, 1);
 
 			if (NeedCheck) {
 				if (temp.varType != args[i]) {
@@ -1430,6 +1433,7 @@ private:
 
 		s_StatementSegment reg{};
 
+		std::cout << A.iType << "\n";
 		if (A.iType == 1) {
 			reg = A;
 			reg.iToken.m_Value = IntConstexprCalcValueUnary(op.iToken.m_Desc, A.iToken.GetValue<SlgRuleTable::SlgINT>());
@@ -1438,12 +1442,12 @@ private:
 		}
 		else if (A.iType == 2) {
 
-			std::cout << "GGGGGGG";
 			reg = A;
 			reg.iToken.m_Value = FloatConstexprCalcValueUnary(op.iToken.m_Desc, A.iToken.GetValue<SlgRuleTable::SlgFLOAT>());
 			reg.iType = 2;
 			reg.varType = "float";
 			DescGenerator(reg);
+			return reg;
 		}
 		else if (A.iType != 7) {
 			reg.iType = 7;
@@ -1858,7 +1862,7 @@ private:
 		switch (desc) {
 		case SlgRuleTable::e_SlgTokenDesc::NOT:
 		case SlgRuleTable::e_SlgTokenDesc::INVERT:
-			return std::abs(value) < 0.0001 == 0 ? 1.0 : 0.0;
+			return std::abs(value) < 0.0001 ? 1.0 : 0.0;
 		}
 		return 0.0;
 	}
