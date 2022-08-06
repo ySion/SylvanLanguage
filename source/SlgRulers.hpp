@@ -1,10 +1,13 @@
 ﻿#pragma once
-#include <iostream>
-#include <unordered_set>
-#include <unordered_map>
+#include "pch.hpp"
 
 class SlgRuleTable {
 public:
+	using SlgINT = long long;
+	using SlgFLOAT = float;
+	using SlgSTRING = std::string;
+	using TokenValueType = std::variant<SlgINT, SlgFLOAT, SlgSTRING>;
+	
 	enum class e_SlgTokenType {
 		ERROR = 0x0000,
 		NULLVALUE = 0x0100,
@@ -61,7 +64,6 @@ public:
 		UnaryOperator = 0x2400, // 一元运算符
 		NOT,			// ! 
 		INVERT,			// ~
-		NEGATIVE,		// -
 
 		AssignmentOperator = 0x2800, // 只用于变量  赋值运算符
 		EQUAL,		// = 
