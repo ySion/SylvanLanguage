@@ -2,7 +2,7 @@
 #include "pch.hpp"
 
 #include "SlgCompilerConfig.hpp"
-#include "SlgRulers.hpp"
+#include "SlgInterpreter.hpp"
 
 
 class SlgRuleTable;
@@ -411,7 +411,6 @@ class SlgStatementCompile {
 		std::unordered_map<std::string, s_SlgFunctionDesc> m_FunctionTable{};
 	};
 
-
 	struct s_StatementSegment {
 		size_t idx{};
 
@@ -438,11 +437,13 @@ class SlgStatementCompile {
 	SlgErrorMachine* m_ErrorMachine{};
 
 	std::unique_ptr<SlgAssemblyData> m_AssemblyData{};
+
 	Slgd87AssemblyGenerator m_AsmGen{};
 
 	s_SlgProgramTable m_ProgramTable{};
 
 	size_t m_LocalVariableSize{};
+
 	std::unordered_map<std::string, s_SlgLocalVariableDesc> m_LocalVariable{};
 
 	std::array<char, 64> m_Register{  };
@@ -533,7 +534,7 @@ public:
 		m_AssemblyData->Show();
 	}
 
-	void ShowProgramTable() {
+	inline void ShowProgramTable() {
 
 		for (auto i : m_ProgramTable.m_Attribute) {
 			std::cout << "@" << i.first << "\t\tType:" << i.second.m_TypeStr << "\tSize:" << (unsigned short)i.second.m_VariableExternType << "\tIsPrivate:" << (i.second.isPrivateAttribute ? "yes" : "no") << std::endl;
@@ -802,6 +803,22 @@ private:
 		return m_ErrorMachine->Success();
 	}
 
+	inline int GetFreeRegister() {
+		for (int i = 0; i < 64; i++) {
+			if (m_Register[i] == 0) {
+				m_Register[i] = 1;
+				return i;
+			}
+		}
+		return 63;
+	}
+
+	inline void FreeAllRegister() {
+		for (int i = 0; i < 64; i++) {
+			m_Register[i] = 0;
+		}
+	}
+
 	inline s_StatementSegment ExprSolver(size_t start_idx, size_t end_idx, int recursionDepth = 0) {
 
 		std::vector<s_StatementSegment> statementList;
@@ -1044,51 +1061,6 @@ private:
 				return res;
 			}
 		}
-
-	}
-
-	inline int GetFreeRegister() {
-		for (int i = 0; i < 64; i++) {
-			if (m_Register[i] == 0) {
-				m_Register[i] = 1;
-				return i;
-			}
-			else {
-				continue;
-			}
-		}
-		return 63;
-	}
-
-	inline void FreeAllRegister() {
-		for (int i = 0; i < 64; i++) {
-			m_Register[i] = 0;
-		}
-	}
-
-	inline s_StatementSegment SingleStatementSegmentSolver(s_StatementSegment& item) {
-		if (item.iType == 0) {
-			if (item.type == 1 || item.type == 2 || item.type == 4 || item.type == 5) {
-				return VariableSolver(item);
-			}
-			else if (item.type == 3 || item.type == 6 || item.type == 7) {
-				return FunctionSolver(item);
-			}
-			else {
-				m_ErrorMachine->AddError("Unknow Token whitch type = error.", m_Tokens[item.idx].m_LineNumber, m_Tokens[item.idx].m_ColNumber, SlgRuleTable::e_SlgErrorNumber::ERROR_UNEXPECTED_TOKEN);
-				return s_StatementSegment{};
-			}
-		}
-		else if (item.iType == 1 || item.iType == 2 || item.iType == 3) {
-			return ConstSolver(item);
-		}
-		else if (item.iType == 4) {
-			return ExprSolver(item.idx + 1, item.end - 1, 1);
-		}
-		else {
-			m_ErrorMachine->AddError("Unknow Token whitch itype = error.", m_Tokens[item.idx].m_LineNumber, m_Tokens[item.idx].m_ColNumber, SlgRuleTable::e_SlgErrorNumber::ERROR_UNEXPECTED_TOKEN);
-			return s_StatementSegment{};
-		}
 	}
 
 	inline s_StatementSegment ExprSolverCall(size_t minprop, size_t maxprop, size_t currentprop, std::vector<s_StatementSegment>& items, size_t start, size_t end) {
@@ -1177,6 +1149,31 @@ private:
 			}
 			DescGenerator(A);
 			return A;
+		}
+	}
+
+	inline s_StatementSegment SingleStatementSegmentSolver(s_StatementSegment& item) {
+		if (item.iType == 0) {
+			if (item.type == 1 || item.type == 2 || item.type == 4 || item.type == 5) {
+				return VariableSolver(item);
+			}
+			else if (item.type == 3 || item.type == 6 || item.type == 7) {
+				return FunctionSolver(item);
+			}
+			else {
+				m_ErrorMachine->AddError("Unknow Token whitch type = error.", m_Tokens[item.idx].m_LineNumber, m_Tokens[item.idx].m_ColNumber, SlgRuleTable::e_SlgErrorNumber::ERROR_UNEXPECTED_TOKEN);
+				return s_StatementSegment{};
+			}
+		}
+		else if (item.iType == 1 || item.iType == 2 || item.iType == 3) {
+			return ConstSolver(item);
+		}
+		else if (item.iType == 4) {
+			return ExprSolver(item.idx + 1, item.end - 1, 1);
+		}
+		else {
+			m_ErrorMachine->AddError("Unknow Token whitch itype = error.", m_Tokens[item.idx].m_LineNumber, m_Tokens[item.idx].m_ColNumber, SlgRuleTable::e_SlgErrorNumber::ERROR_UNEXPECTED_TOKEN);
+			return s_StatementSegment{};
 		}
 	}
 
@@ -1346,45 +1343,6 @@ private:
 		return vtemp;
 	}
 
-	inline s_StatementSegment DescGenerator(s_StatementSegment& item) {
-
-		if (item.iType == 1) {
-			item.desc = std::to_string(item.iToken.GetValue<SlgRuleTable::SlgINT>());
-		}
-		else if (item.iType == 2) {
-			item.desc = std::to_string(item.iToken.GetValue<SlgRuleTable::SlgFLOAT>());
-		}
-		else if (item.iType == 4) {
-			item.desc = item.iToken.GetValue<std::string>();
-		}
-		else if (item.iType == 0) {
-			if (item.type == 1) {
-				if (item.ModuleName != "")
-				{
-					item.desc = item.ModuleName + "::";
-				}
-				item.desc += item.MainName;
-			}
-			else if (item.type == 2) {
-				if (item.ModuleName != "")
-				{
-					item.desc = item.ModuleName + "::";
-				}
-				item.desc += item.MainName + "." + item.MemberName;
-			}
-			else if (item.type == 4) {
-				item.desc = item.MainName;
-			}
-			else if (item.type == 5) {
-				item.desc = item.MainName + "." + item.MemberName;
-			}
-		}
-		else if (item.iType == 7) {
-			item.desc = "R" + std::to_string(item.Reg);
-		}
-		return item;
-	}
-
 	inline s_StatementSegment VariableSolver(s_StatementSegment& item) {
 
 		if (item.type == 1 || item.type == 2) {
@@ -1427,148 +1385,6 @@ private:
 	inline s_StatementSegment ConstSolver(s_StatementSegment& item) {
 
 		return DescGenerator(item);
-	}
-
-	inline s_StatementSegment SovlerAsmUnaryOperator(s_StatementSegment& op, s_StatementSegment& A) {
-
-		s_StatementSegment reg{};
-
-		std::cout << A.iType << "\n";
-		if (A.iType == 1) {
-			reg = A;
-			reg.iToken.m_Value = IntConstexprCalcValueUnary(op.iToken.m_Desc, A.iToken.GetValue<SlgRuleTable::SlgINT>());
-			DescGenerator(reg);
-			return reg;
-		}
-		else if (A.iType == 2) {
-
-			reg = A;
-			reg.iToken.m_Value = FloatConstexprCalcValueUnary(op.iToken.m_Desc, A.iToken.GetValue<SlgRuleTable::SlgFLOAT>());
-			reg.iType = 2;
-			reg.varType = "float";
-			DescGenerator(reg);
-			return reg;
-		}
-		else if (A.iType != 7) {
-			reg.iType = 7;
-			reg.varType = A.varType;
-			reg.Reg = GetFreeRegister();
-			DescGenerator(reg);
-			printf("MOV %s, %s\n", reg.desc.c_str(), A.desc.c_str());
-		}
-		else {
-			reg = A;
-			DescGenerator(reg);
-		}
-
-		switch (op.iToken.m_Desc) {
-		case SlgRuleTable::e_SlgTokenDesc::INVERT:
-			printf("INV %s\n", A.desc.c_str());
-			return A;
-		case SlgRuleTable::e_SlgTokenDesc::NOT:
-			printf("NOT %s\n", A.desc.c_str());
-			return A;
-		default:
-			return s_StatementSegment{};
-		}
-	}
-	//reg.varType = A.varType;
-	inline s_StatementSegment SovlerAsmBinaryOperator(s_StatementSegment& op, s_StatementSegment& A, s_StatementSegment& B) {
-		//检查部分
-
-		//执行部分
-		s_StatementSegment reg{};
-		reg.varType = A.varType;
-
-
-		if (A.iType == 1 && B.iType == 1) {
-			reg = A;
-			reg.iToken.m_Value = IntConstexprCalcValueBinary(op.iToken.m_Desc, A.iToken.GetValue<SlgRuleTable::SlgINT>(), B.iToken.GetValue<SlgRuleTable::SlgINT>());
-			DescGenerator(reg);
-			return reg;
-		}
-		else if (A.iType == 2 && B.iType == 2 || A.iType == 2 && B.iType == 1 || A.iType == 1 && B.iType == 2) {
-			reg = A;
-			reg.iToken.m_Value = FloatConstexprCalcValueBinary(op.iToken.m_Desc, A.iToken.GetValue<SlgRuleTable::SlgFLOAT>(), B.iToken.GetValue<SlgRuleTable::SlgFLOAT>());
-			reg.iType = 2;
-			reg.varType = "float";
-			DescGenerator(reg);
-			return reg;
-		}
-		else if (A.iType != 7) {
-			reg.iType = 7;
-			reg.Reg = GetFreeRegister();
-			DescGenerator(reg);
-			printf("MOV %s, %s\n", reg.desc.c_str(), A.desc.c_str());
-		}
-		else {
-			reg = A;
-			DescGenerator(reg);
-		}
-
-		switch (op.iToken.m_Desc) {
-		case SlgRuleTable::e_SlgTokenDesc::ADD:
-			printf("ADD %s, %s\n", reg.desc.c_str(), B.desc.c_str());
-			return reg;
-		case SlgRuleTable::e_SlgTokenDesc::SUB:
-			printf("SUB %s, %s\n", reg.desc.c_str(), B.desc.c_str());
-			return reg;
-		case SlgRuleTable::e_SlgTokenDesc::MUL:
-			printf("MUL %s, %s\n", reg.desc.c_str(), B.desc.c_str());
-			return reg;
-		case SlgRuleTable::e_SlgTokenDesc::DIV:
-			printf("DIV %s, %s\n", reg.desc.c_str(), B.desc.c_str());
-			return reg;
-		case SlgRuleTable::e_SlgTokenDesc::MOD:
-			printf("MOD %s, %s\n", reg.desc.c_str(), B.desc.c_str());
-			return reg;
-		default:
-			return s_StatementSegment{};
-		}
-	}
-
-
-	inline s_StatementSegment SovlerAsmAssignmentOperator(s_StatementSegment& op, s_StatementSegment& A, s_StatementSegment& B) {
-		switch (op.iToken.m_Desc) {
-		case SlgRuleTable::e_SlgTokenDesc::ADDEQUAL:
-			printf("ADDTO %s, %s\n", A.desc.c_str(), B.desc.c_str());
-			return A;
-		case SlgRuleTable::e_SlgTokenDesc::SUBEQUAL:
-			printf("SUBTO %s, %s\n", A.desc.c_str(), B.desc.c_str());
-			return A;
-		case SlgRuleTable::e_SlgTokenDesc::MULEQUAL:
-			printf("SUBTO %s, %s\n", A.desc.c_str(), B.desc.c_str());
-			return A;
-		case SlgRuleTable::e_SlgTokenDesc::DIVEQUAL:
-			printf("DIVTO %s, %s\n", A.desc.c_str(), B.desc.c_str());
-			return A;
-		case SlgRuleTable::e_SlgTokenDesc::MODEQUAL:
-			printf("MODTO %s, %s\n", A.desc.c_str(), B.desc.c_str());
-			return A;
-		case SlgRuleTable::e_SlgTokenDesc::EQUAL:
-			printf("MOV %s, %s\n", A.desc.c_str(), B.desc.c_str());
-			return A;
-		case SlgRuleTable::e_SlgTokenDesc::ANDEQUAL:
-			printf("ANDTO %s, %s\n", A.desc.c_str(), B.desc.c_str());
-			return A;
-		case SlgRuleTable::e_SlgTokenDesc::OREQUAL:
-			printf("ORTO %s, %s\n", A.desc.c_str(), B.desc.c_str());
-			return A;
-		case SlgRuleTable::e_SlgTokenDesc::XOREQUAL:
-			printf("XORTO %s, %s\n", A.desc.c_str(), B.desc.c_str());
-			return A;
-		case SlgRuleTable::e_SlgTokenDesc::INVERTEQUAL:
-			printf("INVTO %s, %s\n", A.desc.c_str(), B.desc.c_str());
-			return A;
-		case SlgRuleTable::e_SlgTokenDesc::LSHIFTEQUAL:
-			printf("LSHTO %s, %s\n", A.desc.c_str(), B.desc.c_str());
-			return A;
-		case SlgRuleTable::e_SlgTokenDesc::RSHIFTEQUAL:
-			printf("RSHTO %s, %s\n", A.desc.c_str(), B.desc.c_str());
-			return A;
-		default:
-			return s_StatementSegment{};
-		}
 	}
 
 	// type， 0-错误， 1-属性， 2-属性成员变量， 3-属性成员函数， 4-变量， 5-变量的成员变量, 6-变量的成员函数, 7-普通函数
@@ -1787,7 +1603,50 @@ private:
 		return false;
 	}
 
-	inline std::optional<SlgCompilerConfig::s_SlgFunction> FindFunction(const std::string& functionName, std::string& returnType, std::vector<std::string> argsType) {
+	inline s_StatementSegment DescGenerator(s_StatementSegment& item) {
+
+		if (item.iType == 1) {
+			item.desc = std::to_string(item.iToken.GetValue<SlgRuleTable::SlgINT>());
+		}
+		else if (item.iType == 2) {
+			item.desc = std::to_string(item.iToken.GetValue<SlgRuleTable::SlgFLOAT>());
+		}
+		else if (item.iType == 4) {
+			item.desc = item.iToken.GetValue<std::string>();
+		}
+		else if (item.iType == 0) {
+			if (item.type == 1) {
+				if (item.ModuleName != "")
+				{
+					item.desc = item.ModuleName + "::";
+				}
+				item.desc += item.MainName;
+			}
+			else if (item.type == 2) {
+				if (item.ModuleName != "")
+				{
+					item.desc = item.ModuleName + "::";
+				}
+				item.desc += item.MainName + "." + item.MemberName;
+			}
+			else if (item.type == 4) {
+				item.desc = item.MainName;
+			}
+			else if (item.type == 5) {
+				item.desc = item.MainName + "." + item.MemberName;
+			}
+		}
+		else if (item.iType == 7) {
+			item.desc = "R" + std::to_string(item.Reg);
+		}
+		return item;
+	}
+
+	inline std::optional<SlgCompilerConfig::s_SlgFunction> FindFunction(const std::string& ModuleName, const std::string& functionName, std::string& returnType, std::vector<std::string> argsType) {
+
+	}
+
+	inline std::optional<SlgCompilerConfig::s_SlgFunction> FindAttribute(const std::string& ModuleName, const std::string& functionName, std::string& Type) {
 
 	}
 
@@ -1797,6 +1656,147 @@ private:
 
 	inline std::optional<SlgCompilerConfig::s_SlgMemberVarible> FindMemberVariable(const std::string& variableType, const std::string& memberName, std::string& type, bool isPrivate) {
 
+	}
+
+	inline s_StatementSegment SovlerAsmUnaryOperator(s_StatementSegment& op, s_StatementSegment& A) {
+
+		s_StatementSegment reg{};
+
+		std::cout << A.iType << "\n";
+		if (A.iType == 1) {
+			reg = A;
+			reg.iToken.m_Value = IntConstexprCalcValueUnary(op.iToken.m_Desc, A.iToken.GetValue<SlgRuleTable::SlgINT>());
+			DescGenerator(reg);
+			return reg;
+		}
+		else if (A.iType == 2) {
+
+			reg = A;
+			reg.iToken.m_Value = FloatConstexprCalcValueUnary(op.iToken.m_Desc, A.iToken.GetValue<SlgRuleTable::SlgFLOAT>());
+			reg.iType = 2;
+			reg.varType = "float";
+			DescGenerator(reg);
+			return reg;
+		}
+		else if (A.iType != 7) {
+			reg.iType = 7;
+			reg.varType = A.varType;
+			reg.Reg = GetFreeRegister();
+			DescGenerator(reg);
+			printf("MOV %s, %s\n", reg.desc.c_str(), A.desc.c_str());
+		}
+		else {
+			reg = A;
+			DescGenerator(reg);
+		}
+
+		switch (op.iToken.m_Desc) {
+		case SlgRuleTable::e_SlgTokenDesc::INVERT:
+			printf("INV %s\n", A.desc.c_str());
+			return A;
+		case SlgRuleTable::e_SlgTokenDesc::NOT:
+			printf("NOT %s\n", A.desc.c_str());
+			return A;
+		default:
+			return s_StatementSegment{};
+		}
+	}
+
+	inline s_StatementSegment SovlerAsmBinaryOperator(s_StatementSegment& op, s_StatementSegment& A, s_StatementSegment& B) {
+		//检查部分
+
+		//执行部分
+		s_StatementSegment reg{};
+		reg.varType = A.varType;
+
+
+		if (A.iType == 1 && B.iType == 1) {
+			reg = A;
+			reg.iToken.m_Value = IntConstexprCalcValueBinary(op.iToken.m_Desc, A.iToken.GetValue<SlgRuleTable::SlgINT>(), B.iToken.GetValue<SlgRuleTable::SlgINT>());
+			DescGenerator(reg);
+			return reg;
+		}
+		else if (A.iType == 2 && B.iType == 2 || A.iType == 2 && B.iType == 1 || A.iType == 1 && B.iType == 2) {
+			reg = A;
+			reg.iToken.m_Value = FloatConstexprCalcValueBinary(op.iToken.m_Desc, A.iToken.GetValue<SlgRuleTable::SlgFLOAT>(), B.iToken.GetValue<SlgRuleTable::SlgFLOAT>());
+			reg.iType = 2;
+			reg.varType = "float";
+			DescGenerator(reg);
+			return reg;
+		}
+		else if (A.iType != 7) {
+			reg.iType = 7;
+			reg.Reg = GetFreeRegister();
+			DescGenerator(reg);
+			printf("MOV %s, %s\n", reg.desc.c_str(), A.desc.c_str());
+		}
+		else {
+			reg = A;
+			DescGenerator(reg);
+		}
+
+		switch (op.iToken.m_Desc) {
+		case SlgRuleTable::e_SlgTokenDesc::ADD:
+			printf("ADD %s, %s\n", reg.desc.c_str(), B.desc.c_str());
+			return reg;
+		case SlgRuleTable::e_SlgTokenDesc::SUB:
+			printf("SUB %s, %s\n", reg.desc.c_str(), B.desc.c_str());
+			return reg;
+		case SlgRuleTable::e_SlgTokenDesc::MUL:
+			printf("MUL %s, %s\n", reg.desc.c_str(), B.desc.c_str());
+			return reg;
+		case SlgRuleTable::e_SlgTokenDesc::DIV:
+			printf("DIV %s, %s\n", reg.desc.c_str(), B.desc.c_str());
+			return reg;
+		case SlgRuleTable::e_SlgTokenDesc::MOD:
+			printf("MOD %s, %s\n", reg.desc.c_str(), B.desc.c_str());
+			return reg;
+		default:
+			return s_StatementSegment{};
+		}
+	}
+
+	inline s_StatementSegment SovlerAsmAssignmentOperator(s_StatementSegment& op, s_StatementSegment& A, s_StatementSegment& B) {
+		switch (op.iToken.m_Desc) {
+		case SlgRuleTable::e_SlgTokenDesc::ADDEQUAL:
+			printf("ADDTO %s, %s\n", A.desc.c_str(), B.desc.c_str());
+			return A;
+		case SlgRuleTable::e_SlgTokenDesc::SUBEQUAL:
+			printf("SUBTO %s, %s\n", A.desc.c_str(), B.desc.c_str());
+			return A;
+		case SlgRuleTable::e_SlgTokenDesc::MULEQUAL:
+			printf("SUBTO %s, %s\n", A.desc.c_str(), B.desc.c_str());
+			return A;
+		case SlgRuleTable::e_SlgTokenDesc::DIVEQUAL:
+			printf("DIVTO %s, %s\n", A.desc.c_str(), B.desc.c_str());
+			return A;
+		case SlgRuleTable::e_SlgTokenDesc::MODEQUAL:
+			printf("MODTO %s, %s\n", A.desc.c_str(), B.desc.c_str());
+			return A;
+		case SlgRuleTable::e_SlgTokenDesc::EQUAL:
+			printf("MOV %s, %s\n", A.desc.c_str(), B.desc.c_str());
+			return A;
+		case SlgRuleTable::e_SlgTokenDesc::ANDEQUAL:
+			printf("ANDTO %s, %s\n", A.desc.c_str(), B.desc.c_str());
+			return A;
+		case SlgRuleTable::e_SlgTokenDesc::OREQUAL:
+			printf("ORTO %s, %s\n", A.desc.c_str(), B.desc.c_str());
+			return A;
+		case SlgRuleTable::e_SlgTokenDesc::XOREQUAL:
+			printf("XORTO %s, %s\n", A.desc.c_str(), B.desc.c_str());
+			return A;
+		case SlgRuleTable::e_SlgTokenDesc::INVERTEQUAL:
+			printf("INVTO %s, %s\n", A.desc.c_str(), B.desc.c_str());
+			return A;
+		case SlgRuleTable::e_SlgTokenDesc::LSHIFTEQUAL:
+			printf("LSHTO %s, %s\n", A.desc.c_str(), B.desc.c_str());
+			return A;
+		case SlgRuleTable::e_SlgTokenDesc::RSHIFTEQUAL:
+			printf("RSHTO %s, %s\n", A.desc.c_str(), B.desc.c_str());
+			return A;
+		default:
+			return s_StatementSegment{};
+		}
 	}
 
 	inline SlgRuleTable::SlgINT IntConstexprCalcValueUnary(SlgRuleTable::e_SlgTokenDesc desc, SlgRuleTable::SlgINT value) {
