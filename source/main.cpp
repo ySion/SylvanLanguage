@@ -1,10 +1,12 @@
 ﻿#include "pch.hpp"
 #include "SlgCompiler.hpp"
+#include "SlgInterpreter.hpp"
 
 
 int main() {
 
 	std::ifstream file("D:/hello.txt");
+
 
 	if (file.is_open()) {
 		std::string codes = "";
@@ -13,26 +15,13 @@ int main() {
 			codes += temp + "\n";
 		}
 		file.close();
-		std::string bb = "abc";
-
-		SlgErrorMachine mach;
-		SlgTokenizer token(codes, &mach);
-		if (mach.Success()) {
-			SlgStatementCompile SA(&token, &mach);
-			if (mach.Success()) {
-				std::cout << "Success" << "\n";
-				SA.ShowProgramTable();
-				SA.ShowAsm();
-			}
-			else {
-				mach.ShowErrors();
-			}
-		}
-		else {
-			mach.ShowErrors();
-		}
+		
+		SylvanLanguage::CompilerConfig config;
+		SylvanLanguage::RunTimeEnvironment env(&config);
+		env.CreateNetWork("Hello");
+		env.AddModuleSourceCode("Hello", codes);
+		
+		return  0;
 	}
-	return  0;
 }
-
 
