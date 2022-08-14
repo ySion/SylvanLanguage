@@ -471,14 +471,6 @@ namespace SylvanLanguage {
 			}
 			else if (bracketMask == 0 && GetIdentifierSegment(r_idx, end_idx, type, moduleName, mainName, memberName, argbegin, end)) {
 
-				if (moduleName != "") {
-					switch (type) {
-					case 2: case 3:
-						mErrorMachine->AddError("External Attribute don't allow the use of member functions or member variables! but you can use \"=\" to Assignment it by a local variable or Copy it to a local variable to write or read it.", mTokens[r_idx].mLineNumber, mTokens[r_idx].mColNumber);
-						return SStatementSegment{};
-					}
-				}
-
 				SStatementSegment temp{};
 				temp.Idx = r_idx;
 				temp.BasicType = 0;
@@ -516,6 +508,10 @@ namespace SylvanLanguage {
 		SStatementSegment prev = statementList[list_idx];
 		list_idx++;
 
+		if (prev.BasicType == 5) {
+			propList.push_back(prev.Token.GetOperatorProperity());
+		}
+
 		bool hasAssignmentOperator = false;
 		for (; list_idx < statementList.size(); ++list_idx) {
 			if (statementList[list_idx].BasicType == -1) {
@@ -525,6 +521,7 @@ namespace SylvanLanguage {
 
 			if (statementList[list_idx].BasicType < 5) {
 				if (prev.BasicType != 5) {
+					std::cout << "Error Pos" << statementList[list_idx].Idx << "\n";
 					mErrorMachine->AddError("Missing operator before identifier.", mTokens[statementList[list_idx].Idx].mColNumber, mTokens[statementList[list_idx].Idx].mColNumber);
 					return SStatementSegment{};
 				}
@@ -596,7 +593,7 @@ namespace SylvanLanguage {
 
 		if (propList.empty()) {
 			minProp = 0;
-			maxProp = 99;
+			maxProp = 16;
 		}
 		else if (propList.size() == 1) {
 			minProp = propList[0];
@@ -647,12 +644,13 @@ namespace SylvanLanguage {
 	}
 
 	SStatementSegment SourceCodeCompile::ExprSolverCall(size_t minprop, size_t maxprop, size_t currentprop, std::vector<SStatementSegment>& items, size_t start, size_t end) {
+
 		if (!mErrorMachine->Success()) {
 			return SStatementSegment{};
 		}
+
 		if (currentprop > maxprop + 1) { return SStatementSegment{}; }
 
-		//单语句
 		if (end == start) {
 			return SingleStatementSegmentSolver(items[start]);
 		}
@@ -773,11 +771,6 @@ namespace SylvanLanguage {
 
 	SStatementSegment SourceCodeCompile::FunctionSolver(SStatementSegment& item) {
 		//函数参数分离
-		//检查部分
-
-		if (!mErrorMachine->Success()) {
-			return SStatementSegment{};
-		}
 
 		std::vector<std::string> args{};
 		std::string retType{};
@@ -1009,7 +1002,6 @@ namespace SylvanLanguage {
 						}
 
 						item.VarTypeDesc = mFind2->second.Type;
-
 					}
 					return DescGenerator(item);
 				}
@@ -1023,6 +1015,7 @@ namespace SylvanLanguage {
 
 	//如果有，返回 返回类型 和汇编
 	std::optional<std::pair<std::string, std::string>> SourceCodeCompile::GetTypeCompatibleAsmForBinaryOperator(ETokenDesc op, std::string A, std::string B) {
+
 		auto itor = TypeRuler::TypeBinaryOperatorCompatible.find(op);
 		if (itor == TypeRuler::TypeBinaryOperatorCompatible.end()) {
 			return std::nullopt;
@@ -1040,6 +1033,7 @@ namespace SylvanLanguage {
 	}
 
 	std::optional<std::string> SourceCodeCompile::GetTypeCompatibleAsmForAssignmentOperator(ETokenDesc op, std::string A, std::string B) {
+
 		auto itor = TypeRuler::TypeAssignmentOperatorCompatible.find(op);
 		if (itor == TypeRuler::TypeAssignmentOperatorCompatible.end()) {
 			return std::nullopt;
@@ -1057,6 +1051,8 @@ namespace SylvanLanguage {
 	}
 
 	std::optional<std::string> SourceCodeCompile::GetTypeCompatibleAsmForUnaryOperator(ETokenDesc op, std::string A) {
+
+
 		auto itor = TypeRuler::TypeUnaryOperatorCompatible.find(op);
 		if (itor == TypeRuler::TypeUnaryOperatorCompatible.end()) {
 			return std::nullopt;
@@ -1322,12 +1318,16 @@ namespace SylvanLanguage {
 	}
 
 	SStatementSegment SourceCodeCompile::SovlerAsmUnaryOperator(SStatementSegment& op, SStatementSegment& A) {
-
+		if (!mErrorMachine->Success()) {
+			return SStatementSegment{};
+		}
 		SStatementSegment reg{};
 
 		if (A.BasicType == 1) {
 			reg = A;
 			reg.Token.mValue = IntConstexprCalcValueUnary(op.Token.mDesc, A.Token.GetValue<RuleTable::SlgINT>());
+			reg.BasicType = 1;
+			reg.VarTypeDesc = "int";
 			DescGenerator(reg);
 			return reg;
 		}
@@ -1350,7 +1350,8 @@ namespace SylvanLanguage {
 				printf("%s %s, %s\n", movRes.value().c_str(), reg.VarNameDesc.c_str(), A.VarNameDesc.c_str());
 			}
 			else {
-				mErrorMachine->AddError("Error type : " + reg.VarTypeDesc, mTokens[op.Idx].mColNumber, mTokens[op.Idx].mColNumber);
+				//std::cout << "Error:" << reg.VarNameDesc << "\n";
+				mErrorMachine->AddError("Error type : " + reg.VarTypeDesc, op.Token.mColNumber, op.Token.mColNumber);
 				return SStatementSegment{};
 			}
 		}
@@ -1372,11 +1373,16 @@ namespace SylvanLanguage {
 
 	SStatementSegment SourceCodeCompile::SovlerAsmBinaryOperator(SStatementSegment& op, SStatementSegment& A, SStatementSegment& B) {
 
+		if (!mErrorMachine->Success()) {
+			return SStatementSegment{};
+		}
 		SStatementSegment reg{};
 
 		if (A.BasicType == 1 && B.BasicType == 1) {
 			reg = A;
 			reg.Token.mValue = IntConstexprCalcValueBinary(op.Token.mDesc, A.Token.GetValue<RuleTable::SlgINT>(), B.Token.GetValue<RuleTable::SlgINT>());
+			reg.BasicType = 1;
+			reg.VarTypeDesc = "int";
 			DescGenerator(reg);
 			return reg;
 		}
@@ -1393,12 +1399,14 @@ namespace SylvanLanguage {
 			reg.VarTypeDesc = A.VarTypeDesc;
 			reg.RegisterID = GetFreeRegister();
 			DescGenerator(reg);
+
 			auto movRes = GetTypeCompatibleAsmForAssignmentOperator(ETokenDesc::EQUAL, reg.VarTypeDesc, reg.VarTypeDesc);
 			if (movRes.has_value()) {
 				printf("%s %s, %s\n", movRes.value().c_str(), reg.VarNameDesc.c_str(), A.VarNameDesc.c_str());
 			}
 			else {
-				mErrorMachine->AddError("Error type : " + reg.VarTypeDesc, mTokens[op.Idx].mColNumber, mTokens[op.Idx].mColNumber);
+				std::cout << "Error:" << reg.VarNameDesc << B.VarNameDesc << "\n";
+				mErrorMachine->AddError("Error type : " + reg.VarTypeDesc, op.Token.mColNumber, op.Token.mColNumber);
 				return SStatementSegment{};
 			}
 		}
@@ -1420,7 +1428,9 @@ namespace SylvanLanguage {
 		}
 	}
 	SStatementSegment SourceCodeCompile::SovlerAsmAssignmentOperator(SStatementSegment& op, SStatementSegment& A, SStatementSegment& B) {
-
+		if (!mErrorMachine->Success()) {
+			return SStatementSegment{};
+		}
 		auto result = GetTypeCompatibleAsmForAssignmentOperator(op.Token.mDesc, A.VarTypeDesc, B.VarTypeDesc);
 
 		if (result.has_value()) {
@@ -1687,6 +1697,18 @@ namespace SylvanLanguage {
 			return SlgTokenItem(ETokenType::STRING, ETokenDesc::STRING, token, mLine, mCol);
 		}
 
+		if (mCode[mPointer] == ':') {
+			mPointer++;
+			if (mPointer < mCode.length() && mCode[mPointer] == ':') {
+				token = "::";
+				mPointer++;
+				return SlgTokenItem(ETokenType::STATEMENTOPERATOR, ETokenDesc::MODULEACCESS, token, mLine, mCol);
+			}
+			else {
+				return SlgTokenItem(ETokenType::ERROR, ETokenDesc::STRING, "Unknown operator \":\", maybe you wanna \"::\"?", mLine, mCol);
+			}
+		}
+
 		//括号
 		auto Bitor = RuleTable::Brackets.find(mCode[mPointer]);
 		if (Bitor != std::end(RuleTable::Brackets)) {
@@ -1725,11 +1747,6 @@ namespace SylvanLanguage {
 		if (Sitor != RuleTable::StatementOpeartor.end()) {
 			token += Sitor->first;
 			mPointer++;
-			if (Sitor->first == ':' && mCode[mPointer] == ':') {
-				mPointer++;
-				token = "::";
-				return SlgTokenItem(ETokenType::STATEMENTOPERATOR, ETokenDesc::MODULEACCESS, token, mLine, mCol);
-			}
 			return SlgTokenItem(ETokenType::STATEMENTOPERATOR, Sitor->second, token, mLine, mCol);
 		}
 
