@@ -7,7 +7,6 @@ int main() {
 
 	std::ifstream file("D:/hello.txt");
 
-
 	if (file.is_open()) {
 		std::string codes = "";
 		std::string temp = "";
@@ -15,12 +14,14 @@ int main() {
 			codes += temp + "\n";
 		}
 		file.close();
-		
+
 		SylvanLanguage::CompilerConfig config;
 		SylvanLanguage::RunTimeEnvironment env(&config);
+
+
 		env.CreateNetWork("Hello");
 		env.AddModuleSourceCode("Hello", codes);
-		
+
 		return  0;
 	}
 }

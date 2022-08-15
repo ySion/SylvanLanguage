@@ -23,16 +23,36 @@ namespace SylvanLanguage {
 			else {
 				mModuleTable[moduleInfo.mCurrentModuleName] = std::move(moduleInfo);
 			}
-
 		}
 	}
 
-	std::optional<SModuleFuntionTable> RunTimeNetWork::FindFuntion(std::string funtionName) {
+	std::optional<SModuleFuntionDesc> RunTimeNetWork::FindFuntion(const std::string& moduleName, const std::string& funtionName) {
+
+		auto itor = mModuleTable.find(moduleName);
+		if (itor != mModuleTable.end()) {
+			auto itor2 = itor->second.mRunTimeFuntionTable.find(funtionName);
+			if (itor2 != itor->second.mRunTimeFuntionTable.end()) {
+				return itor2->second;
+			}
+		}
 
 		return std::nullopt;
 	}
 
-	std::optional<SModuleAttributeTable> RunTimeNetWork::FindAttribute(std::string attrName) {
+	std::optional<SModuleAttributeDesc> RunTimeNetWork::FindAttribute(const std::string& moduleName, const std::string& attrName) {
+		std::string attPath;
+
+		if (moduleName == "") {
+			attPath = moduleName + "::" + attrName;
+		}
+		else {
+			attPath = attrName;
+		}
+
+		auto itor = mRunTimeAttributeTable.find(attPath);
+		if (itor != mRunTimeAttributeTable.end()) {
+			return SModuleAttributeDesc{ itor->second.mType, itor->second.mIsPrivate };
+		}
 		return std::nullopt;
 	}
 

@@ -8,8 +8,10 @@ namespace SylvanLanguage {
 
 	class RuleTable;
 	class RunTimeNetWork;
-	struct SModuleInfo;
 
+	struct SModuleInfo;
+	struct SModuleAttributeDesc;
+	struct SModuleFuntionDesc;
 
 	class SlgTokenItem {
 	public:
@@ -282,12 +284,13 @@ namespace SylvanLanguage {
 
 		SStatementSegment VariableSolver(SStatementSegment& item);
 
-		inline SStatementSegment ConstSolver(SStatementSegment& item) {
+		SStatementSegment ConstSolver(SStatementSegment& item);
 
-			return DescGenerator(item);
-		}
+		SStatementSegment DescGenerator(SStatementSegment& item);
 
-		//如果有，返回 返回类型 和汇编
+		std::optional<std::string> GetTypeCompatibleAsmForPush(std::string A, std::string B);
+
+		//返回 返回类型 和汇编
 		std::optional<std::pair<std::string, std::string>> GetTypeCompatibleAsmForBinaryOperator(ETokenDesc op, std::string A, std::string B);
 
 		std::optional<std::string> GetTypeCompatibleAsmForAssignmentOperator(ETokenDesc op, std::string A, std::string B);
@@ -299,26 +302,19 @@ namespace SylvanLanguage {
 		// VName - 变量 / 属性 / 函数 名字 
 		// FName - 成员变量名字 / 成员函数名字 
 		// argsBegin, argsEnd 如果有函数， 函数参数的范围， 包含 "(" 和 ")", argsEnd也是分析结束的地址
-
 		bool GetIdentifierSegment(size_t start_idx, size_t limited_end_idx, int& type, std::string& MName, std::string& VName, std::string& FName, size_t& argsBegin, size_t& argsEnd);
 
-		SStatementSegment DescGenerator(SStatementSegment& item);
+		std::optional<CompilerConfig::SInlineFunctionDesc> FindMemberFunction(const std::string& variableType, const std::string& memberFuntionName);
 
-		inline std::optional<CompilerConfig::SInlineFunctionDesc> FindFunction(const std::string& ModuleName, const std::string& functionName, std::string& returnType, std::vector<std::string> argsType) {
+		std::optional<CompilerConfig::SMemberVaribleDesc> FindMemberVariable(const std::string& variableType, const std::string& memberName);
 
-		}
+		std::optional<CompilerConfig::SInlineFunctionDesc> FindInlineFunction(const std::string& functionName);
 
-		inline std::optional<CompilerConfig::SInlineFunctionDesc> FindAttribute(const std::string& ModuleName, const std::string& functionName, std::string& Type) {
+		std::optional<std::pair<size_t, SLocalVariableDesc>> FindLocalVariable(const std::string& varName);
 
-		}
+		std::optional<SModuleAttributeDesc> FindAttribute(const std::string& ModuleName, const std::string& varName);
 
-		inline std::optional<CompilerConfig::SInlineFunctionDesc> FindMemberFunction(const std::string& variableType, const std::string& memberFuntionName, std::string& returnType, std::vector<std::string> argsType) {
-
-		}
-
-		inline std::optional<CompilerConfig::SMemberVaribleDesc> FindMemberVariable(const std::string& variableType, const std::string& memberName, std::string& type, bool isPrivate) {
-
-		}
+		std::optional<SModuleFuntionDesc> FindCustomFunction(const std::string& ModuleName, const std::string& varName);
 
 		SStatementSegment SovlerAsmUnaryOperator(SStatementSegment& op, SStatementSegment& A);
 
@@ -326,8 +322,6 @@ namespace SylvanLanguage {
 
 		SStatementSegment SovlerAsmAssignmentOperator(SStatementSegment& op, SStatementSegment& A, SStatementSegment& B);
 
-
-		//常量运算
 		RuleTable::SlgINT IntConstexprCalcValueUnary(ETokenDesc desc, RuleTable::SlgINT value);
 
 		RuleTable::SlgINT IntConstexprCalcValueBinary(ETokenDesc desc, RuleTable::SlgINT A, RuleTable::SlgINT B);

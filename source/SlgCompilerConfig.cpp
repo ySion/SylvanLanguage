@@ -2,8 +2,10 @@
 namespace SylvanLanguage {
 
 	bool AssemblyData::ReSize(size_t newSize) {
-		mRoot = realloc(mRoot, newSize);
+		void* newMem = realloc(mRoot, newSize);
+
 		if (mRoot) {
+			mRoot = newMem;
 			mDataAllSize = newSize;
 			return true;
 		}

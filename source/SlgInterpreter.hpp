@@ -12,13 +12,13 @@ namespace SylvanLanguage {
 	class RunTimeNetWork;
 	class RunTimeInstance;
 
-	struct SModuleFuntionTable {
+	struct SModuleFuntionDesc {
 		std::vector<std::string> mFunctionArgsTypeDesc;
 		std::string mFunctionReturnTypeDesc;
 		unsigned int CodeOffest;
 	};
 
-	struct SModuleAttributeTable {
+	struct SModuleAttributeDesc {
 		std::string mType;
 		bool mIsPrivate = false;
 	};
@@ -30,8 +30,8 @@ namespace SylvanLanguage {
 	};
 
 	struct SModuleInfo {
-		std::unordered_map <std::string, SModuleFuntionTable> mRunTimeFuntionTable;
-		std::unordered_map <std::string, SModuleAttributeTable> mRunTimeAttributeTable;
+		std::unordered_map <std::string, SModuleFuntionDesc> mRunTimeFuntionTable;
+		std::unordered_map <std::string, SModuleAttributeDesc> mRunTimeAttributeTable;
 		std::unique_ptr<AssemblyData> mAssemblyData;
 		std::vector<std::string> mDependenceModules;
 		std::string mCurrentModuleName;
@@ -60,9 +60,9 @@ namespace SylvanLanguage {
 
 		//CompileCode
 
-		std::optional<SModuleFuntionTable> FindFuntion(std::string funtionName);
+		std::optional<SModuleFuntionDesc> FindFuntion(const std::string& moduleName, const std::string& functionName);
 
-		std::optional<SModuleAttributeTable> FindAttribute(std::string attrName);
+		std::optional<SModuleAttributeDesc> FindAttribute(const std::string& moduleName, const std::string& varName);
 
 		//AddModule
 		//RemoveModule
