@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <array>
 #include <optional>
+#include <stack>
 #include "tbb/tbb.h"
 
 #undef max

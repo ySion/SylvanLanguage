@@ -13,8 +13,6 @@ module "IO::hello" {
 	vector2 av2;
 	vector3 av3;
 	matrix4x4 av4;
-
-
 	
 	int SetZeroA(int A, vector3 B, int C){
 		A = 5;

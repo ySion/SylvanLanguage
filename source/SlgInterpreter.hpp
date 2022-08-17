@@ -104,5 +104,13 @@ namespace SylvanLanguage {
 		//CS : IP
 		//STACK MEMORY
 		//
+
+		long long CS{};
+		long long BP{};
+		long long SP{};
+		std::stack<long long> BP_BACKEND;
+		std::stack<long long> CS_BACKEND;
+		std::unique_ptr<char*> Stack;
+
 	};
 }
