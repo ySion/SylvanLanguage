@@ -40,7 +40,7 @@ namespace SylvanLanguage {
 		return true;
 	}
 
-	bool AssemblyData::AddString(std::string& strPtr) {
+	bool AssemblyData::AddString(const std::string& strPtr) {
 		return AddData(strPtr.c_str(), strPtr.size() + 1);
 	}
 

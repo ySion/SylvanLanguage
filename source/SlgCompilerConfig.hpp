@@ -1,8 +1,9 @@
 ﻿#pragma once
 
 #include "pch.hpp"
-
 namespace SylvanLanguage {
+	
+	class SourceCodeCompile;
 
 	enum class ETokenType {
 		ERRORTOKEN = 0x0000,
@@ -32,7 +33,6 @@ namespace SylvanLanguage {
 		MEMBERACCESS,		// .
 		MODULEACCESS,		// ::
 		END,			// ;		
-		ATTRIBUTE,		// @
 		TYPE_DECLAR,		// :
 		SELFADD,		// ++ 自增自减不能用在运算表达中, 它属于语句运算符
 		SELFSUB,		// --
@@ -87,7 +87,6 @@ namespace SylvanLanguage {
 		KEYWORLD_using = 0x8001,
 		KEYWORLD_module,
 		KEYWORLD_export,
-		KEYWORLD_extern,
 		KEYWORLD_if,
 		KEYWORLD_else,
 		KEYWORLD_return,
@@ -149,7 +148,6 @@ namespace SylvanLanguage {
 		case ETokenDesc::INT:				return "INT                       ";
 		case ETokenDesc::FLOAT:				return "FLOAT                     ";
 		case ETokenDesc::TYPE_DECLAR:			return "TYPE_DECLAR               ";
-		case ETokenDesc::ATTRIBUTE:			return "ATTRIBUTE                 ";
 		case ETokenDesc::INVERT:			return "INVERT                    ";
 		case ETokenDesc::INVERTEQUAL:			return "INVERTEQUAL               ";
 		case ETokenDesc::MODULEACCESS:			return "MODULEACCESS              ";
@@ -159,7 +157,6 @@ namespace SylvanLanguage {
 		case ETokenDesc::KEYWORLD_using:		return "KEYWORLD_using            ";
 		case ETokenDesc::KEYWORLD_module:		return "KEYWORLD_module           ";
 		case ETokenDesc::KEYWORLD_export:		return "KEYWORLD_export           ";
-		case ETokenDesc::KEYWORLD_extern:		return "KEYWORLD_extern           ";
 		case ETokenDesc::KEYWORLD_if:			return "KEYWORLD_if               ";
 		case ETokenDesc::KEYWORLD_else:			return "KEYWORLD_else             ";
 		case ETokenDesc::KEYWORLD_for:			return "KEYWORLD_for              ";
@@ -189,7 +186,7 @@ namespace SylvanLanguage {
 
 		bool AddData(const void* p, size_t size);
 
-		bool AddString(std::string& strPtr);
+		bool AddString(const std::string& strPtr);
 
 		template<class T>bool AddValue(T p) {
 			return AddData(&p, sizeof(T));
@@ -206,114 +203,115 @@ namespace SylvanLanguage {
 
 		void Show();
 	};
-#define ATT_COMP_ASM(A)  A, ATT_##A
+
 	enum class ESlgd87Asm {
 		MODULE_DEP = 0x8001,
 		MODULE_SELF,
-		ATTRITUBE_LET,
 		GLOBAL_VAR_MALLOC,
+		
+		CALL,
+		
+		M_MATRIAX_SET2,
+		M_MATRIAX_SET3,
+		M_MATRIAX_SET4,
+		M_MATRIAX_SET_ONE2,
+		M_MATRIAX_SET_ONE3,
+		M_MATRIAX_SET_ONE4,
 
-		ATT_COMP_ASM(M_MATRIAX_SET2),
-		ATT_COMP_ASM(M_MATRIAX_SET3),
-		ATT_COMP_ASM(M_MATRIAX_SET4),
-		ATT_COMP_ASM(M_MATRIAX_SET_ONE2),
-		ATT_COMP_ASM(M_MATRIAX_SET_ONE3),
-		ATT_COMP_ASM(M_MATRIAX_SET_ONE4),
+		M_MATRIAX_SET_LINE2,
+		M_MATRIAX_SET_LINE3,
+		M_MATRIAX_SET_LINE4,
 
-		ATT_COMP_ASM(M_MATRIAX_SET_LINE2),
-		ATT_COMP_ASM(M_MATRIAX_SET_LINE3),
-		ATT_COMP_ASM(M_MATRIAX_SET_LINE4),
+		M_MATRIAX_SET_COLUMN2,
+		M_MATRIAX_SET_COLUMN3,
+		M_MATRIAX_SET_COLUMN4,
 
-		ATT_COMP_ASM(M_MATRIAX_SET_COLUMN2),
-		ATT_COMP_ASM(M_MATRIAX_SET_COLUMN3),
-		ATT_COMP_ASM(M_MATRIAX_SET_COLUMN4),
+		M_MATRIAX_GET_ONE2,
+		M_MATRIAX_GET_ONE3,
+		M_MATRIAX_GET_ONE4,
 
-		ATT_COMP_ASM(M_MATRIAX_GET_ONE2),
-		ATT_COMP_ASM(M_MATRIAX_GET_ONE3),
-		ATT_COMP_ASM(M_MATRIAX_GET_ONE4),
+		M_MATRIAX_GET_LINE2,
+		M_MATRIAX_GET_LINE3,
+		M_MATRIAX_GET_LINE4,
 
-		ATT_COMP_ASM(M_MATRIAX_GET_LINE2),
-		ATT_COMP_ASM(M_MATRIAX_GET_LINE3),
-		ATT_COMP_ASM(M_MATRIAX_GET_LINE4),
+		M_MATRIAX_GET_COLUMN2,
+		M_MATRIAX_GET_COLUMN3,
+		M_MATRIAX_GET_COLUMN4,
 
-		ATT_COMP_ASM(M_MATRIAX_GET_COLUMN2),
-		ATT_COMP_ASM(M_MATRIAX_GET_COLUMN3),
-		ATT_COMP_ASM(M_MATRIAX_GET_COLUMN4),
+		SIN,
+		SIN2,
+		SIN3,
+		SIN4,
 
-		ATT_COMP_ASM(SIN),
-		ATT_COMP_ASM(SIN2),
-		ATT_COMP_ASM(SIN3),
-		ATT_COMP_ASM(SIN4),
+		COS,
+		COS2,
+		COS3,
+		COS4,
 
-		ATT_COMP_ASM(COS),
-		ATT_COMP_ASM(COS2),
-		ATT_COMP_ASM(COS3),
-		ATT_COMP_ASM(COS4),
+		TAN,
+		TAN2,
+		TAN3,
+		TAN4,
 
-		ATT_COMP_ASM(TAN),
-		ATT_COMP_ASM(TAN2),
-		ATT_COMP_ASM(TAN3),
-		ATT_COMP_ASM(TAN4),
+		ASIN,
+		ASIN2,
+		ASIN3,
+		ASIN4,
 
-		ATT_COMP_ASM(ASIN),
-		ATT_COMP_ASM(ASIN2),
-		ATT_COMP_ASM(ASIN3),
-		ATT_COMP_ASM(ASIN4),
+		ACOS,
+		ACOS2,
+		ACOS3,
+		ACOS4,
 
-		ATT_COMP_ASM(ACOS),
-		ATT_COMP_ASM(ACOS2),
-		ATT_COMP_ASM(ACOS3),
-		ATT_COMP_ASM(ACOS4),
+		ATAN,
+		ATAN2,
+		ATAN3,
+		ATAN4,
 
-		ATT_COMP_ASM(ATAN),
-		ATT_COMP_ASM(ATAN2),
-		ATT_COMP_ASM(ATAN3),
-		ATT_COMP_ASM(ATAN4),
+		CROSS,
 
-		ATT_COMP_ASM(CROSS),
+		DOT2,
+		DOT3,
+		DOT4,
 
-		ATT_COMP_ASM(DOT2),
-		ATT_COMP_ASM(DOT3),
-		ATT_COMP_ASM(DOT4),
+		LENGTH2,
+		LENGTH3,
 
-		ATT_COMP_ASM(LENGTH2),
-		ATT_COMP_ASM(LENGTH3),
+		DEG2RAD,
+		RAD2DEG,
 
-		ATT_COMP_ASM(DEG2RAD),
-		ATT_COMP_ASM(RAD2DEG),
+		NORMALIZE2,
+		NORMALIZE3,
 
-		ATT_COMP_ASM(NORMALIZE2),
-		ATT_COMP_ASM(NORMALIZE3),
+		DISTANCE2,
+		DISTANCE3,
 
-		ATT_COMP_ASM(DISTANCE2),
-		ATT_COMP_ASM(DISTANCE3),
+		MAX,
+		MIN,
 
-		ATT_COMP_ASM(MAX),
-		ATT_COMP_ASM(MIN),
+		POW,
+		POW2,
+		POW3,
+		POW4,
 
-		ATT_COMP_ASM(POW),
-		ATT_COMP_ASM(POW2),
-		ATT_COMP_ASM(POW3),
-		ATT_COMP_ASM(POW4),
+		SQRT,
+		SQRT2,
+		SQRT3,
+		SQRT4,
+		CLAMP,
+		LERP,
+		LERP2,
+		LERP3,
+		LERP4,
 
-		ATT_COMP_ASM(SQRT),
-		ATT_COMP_ASM(SQRT2),
-		ATT_COMP_ASM(SQRT3),
-		ATT_COMP_ASM(SQRT4),
-		ATT_COMP_ASM(CLAMP),
-		ATT_COMP_ASM(LERP),
-		ATT_COMP_ASM(LERP2),
-		ATT_COMP_ASM(LERP3),
-		ATT_COMP_ASM(LERP4),
+		ABS,
+		ABS2,
+		ABS3,
+		ABS4,
 
-		ATT_COMP_ASM(ABS),
-		ATT_COMP_ASM(ABS2),
-		ATT_COMP_ASM(ABS3),
-		ATT_COMP_ASM(ABS4),
-
-		ATT_COMP_ASM(FLOOR),
-		ATT_COMP_ASM(CEIL),
-		ATT_COMP_ASM(FRACT),
+		FLOOR,
+		CEIL,
+		FRACT,
 
 		//基本指令
 		MOV,
@@ -537,7 +535,9 @@ namespace SylvanLanguage {
 		LOGICAND,
 		LOGICOR,
 
-
+		POP,
+		MARKBP,
+		FUNCTIONRET
 	};
 
 
@@ -566,123 +566,132 @@ namespace SylvanLanguage {
 		struct SMemberVaribleDesc {
 			std::string Type{};
 			bool isConstant = false;
+			unsigned short AddressOffest = 0;
 		};
 
+		struct SBindingFunctionDesc {
+			std::string returnType{};
+			std::vector<std::string> arguments{};
+			std::function<void(void*)> bindLambda;
+		};
+	private:
 		std::unordered_map<std::string, std::unordered_map<std::string, SInlineFunctionDesc>> InlineMemberFunction{};
 
 		std::unordered_map<std::string, std::unordered_map<std::string, SMemberVaribleDesc>> InlineMemberVariable{};
 
 		std::unordered_map<std::string, SInlineFunctionDesc> InlineFunction{};
 
+		std::unordered_map<std::string, SBindingFunctionDesc> BindingFunction{}; //自定义函数
+
 		std::unordered_map<std::string, double> InlineMarcoFloat{};
 
 #define STRMAPASM(A) {#A, ESlgd87Asm::##A}
-#define ATT_COMP_ASM_MAP(A) {#A, ESlgd87Asm::##A}, {"ATT_"#A, ESlgd87Asm::ATT_##A}
-
 
 		std::unordered_map <std::string, ESlgd87Asm> StrMapAsm{
 
-			ATT_COMP_ASM_MAP(M_MATRIAX_SET2),
-			ATT_COMP_ASM_MAP(M_MATRIAX_SET3),
-			ATT_COMP_ASM_MAP(M_MATRIAX_SET4),
-			ATT_COMP_ASM_MAP(M_MATRIAX_SET_ONE2),
-			ATT_COMP_ASM_MAP(M_MATRIAX_SET_ONE3),
-			ATT_COMP_ASM_MAP(M_MATRIAX_SET_ONE4),
+			STRMAPASM(CALL),
 
-			ATT_COMP_ASM_MAP(M_MATRIAX_SET_LINE2),
-			ATT_COMP_ASM_MAP(M_MATRIAX_SET_LINE3),
-			ATT_COMP_ASM_MAP(M_MATRIAX_SET_LINE4),
+			STRMAPASM(M_MATRIAX_SET2),
+			STRMAPASM(M_MATRIAX_SET3),
+			STRMAPASM(M_MATRIAX_SET4),
+			STRMAPASM(M_MATRIAX_SET_ONE2),
+			STRMAPASM(M_MATRIAX_SET_ONE3),
+			STRMAPASM(M_MATRIAX_SET_ONE4),
 
-			ATT_COMP_ASM_MAP(M_MATRIAX_SET_COLUMN2),
-			ATT_COMP_ASM_MAP(M_MATRIAX_SET_COLUMN3),
-			ATT_COMP_ASM_MAP(M_MATRIAX_SET_COLUMN4),
+			STRMAPASM(M_MATRIAX_SET_LINE2),
+			STRMAPASM(M_MATRIAX_SET_LINE3),
+			STRMAPASM(M_MATRIAX_SET_LINE4),
 
-			ATT_COMP_ASM_MAP(M_MATRIAX_GET_ONE2),
-			ATT_COMP_ASM_MAP(M_MATRIAX_GET_ONE3),
-			ATT_COMP_ASM_MAP(M_MATRIAX_GET_ONE4),
+			STRMAPASM(M_MATRIAX_SET_COLUMN2),
+			STRMAPASM(M_MATRIAX_SET_COLUMN3),
+			STRMAPASM(M_MATRIAX_SET_COLUMN4),
 
-			ATT_COMP_ASM_MAP(M_MATRIAX_GET_LINE2),
-			ATT_COMP_ASM_MAP(M_MATRIAX_GET_LINE3),
-			ATT_COMP_ASM_MAP(M_MATRIAX_GET_LINE4),
+			STRMAPASM(M_MATRIAX_GET_ONE2),
+			STRMAPASM(M_MATRIAX_GET_ONE3),
+			STRMAPASM(M_MATRIAX_GET_ONE4),
 
-			ATT_COMP_ASM_MAP(M_MATRIAX_GET_COLUMN2),
-			ATT_COMP_ASM_MAP(M_MATRIAX_GET_COLUMN3),
-			ATT_COMP_ASM_MAP(M_MATRIAX_GET_COLUMN4),
+			STRMAPASM(M_MATRIAX_GET_LINE2),
+			STRMAPASM(M_MATRIAX_GET_LINE3),
+			STRMAPASM(M_MATRIAX_GET_LINE4),
 
-			ATT_COMP_ASM_MAP(SIN),
-			ATT_COMP_ASM_MAP(SIN2),
-			ATT_COMP_ASM_MAP(SIN3),
-			ATT_COMP_ASM_MAP(SIN4),
+			STRMAPASM(M_MATRIAX_GET_COLUMN2),
+			STRMAPASM(M_MATRIAX_GET_COLUMN3),
+			STRMAPASM(M_MATRIAX_GET_COLUMN4),
 
-			ATT_COMP_ASM_MAP(COS),
-			ATT_COMP_ASM_MAP(COS2),
-			ATT_COMP_ASM_MAP(COS3),
-			ATT_COMP_ASM_MAP(COS4),
+			STRMAPASM(SIN),
+			STRMAPASM(SIN2),
+			STRMAPASM(SIN3),
+			STRMAPASM(SIN4),
 
-			ATT_COMP_ASM_MAP(TAN),
-			ATT_COMP_ASM_MAP(TAN2),
-			ATT_COMP_ASM_MAP(TAN3),
-			ATT_COMP_ASM_MAP(TAN4),
+			STRMAPASM(COS),
+			STRMAPASM(COS2),
+			STRMAPASM(COS3),
+			STRMAPASM(COS4),
 
-			ATT_COMP_ASM_MAP(ASIN),
-			ATT_COMP_ASM_MAP(ASIN2),
-			ATT_COMP_ASM_MAP(ASIN3),
-			ATT_COMP_ASM_MAP(ASIN4),
+			STRMAPASM(TAN),
+			STRMAPASM(TAN2),
+			STRMAPASM(TAN3),
+			STRMAPASM(TAN4),
 
-			ATT_COMP_ASM_MAP(ACOS),
-			ATT_COMP_ASM_MAP(ACOS2),
-			ATT_COMP_ASM_MAP(ACOS3),
-			ATT_COMP_ASM_MAP(ACOS4),
+			STRMAPASM(ASIN),
+			STRMAPASM(ASIN2),
+			STRMAPASM(ASIN3),
+			STRMAPASM(ASIN4),
 
-			ATT_COMP_ASM_MAP(ATAN),
-			ATT_COMP_ASM_MAP(ATAN2),
-			ATT_COMP_ASM_MAP(ATAN3),
-			ATT_COMP_ASM_MAP(ATAN4),
+			STRMAPASM(ACOS),
+			STRMAPASM(ACOS2),
+			STRMAPASM(ACOS3),
+			STRMAPASM(ACOS4),
 
-			ATT_COMP_ASM_MAP(CROSS),
+			STRMAPASM(ATAN),
+			STRMAPASM(ATAN2),
+			STRMAPASM(ATAN3),
+			STRMAPASM(ATAN4),
 
-			ATT_COMP_ASM_MAP(DOT2),
-			ATT_COMP_ASM_MAP(DOT3),
-			ATT_COMP_ASM_MAP(DOT4),
+			STRMAPASM(CROSS),
 
-			ATT_COMP_ASM_MAP(LENGTH2),
-			ATT_COMP_ASM_MAP(LENGTH3),
+			STRMAPASM(DOT2),
+			STRMAPASM(DOT3),
+			STRMAPASM(DOT4),
 
-			ATT_COMP_ASM_MAP(DEG2RAD),
-			ATT_COMP_ASM_MAP(RAD2DEG),
+			STRMAPASM(LENGTH2),
+			STRMAPASM(LENGTH3),
 
-			ATT_COMP_ASM_MAP(NORMALIZE2),
-			ATT_COMP_ASM_MAP(NORMALIZE3),
+			STRMAPASM(DEG2RAD),
+			STRMAPASM(RAD2DEG),
 
-			ATT_COMP_ASM_MAP(DISTANCE2),
-			ATT_COMP_ASM_MAP(DISTANCE3),
+			STRMAPASM(NORMALIZE2),
+			STRMAPASM(NORMALIZE3),
 
-			ATT_COMP_ASM_MAP(MAX),
-			ATT_COMP_ASM_MAP(MIN),
+			STRMAPASM(DISTANCE2),
+			STRMAPASM(DISTANCE3),
 
-			ATT_COMP_ASM_MAP(POW),
-			ATT_COMP_ASM_MAP(POW2),
-			ATT_COMP_ASM_MAP(POW3),
-			ATT_COMP_ASM_MAP(POW4),
+			STRMAPASM(MAX),
+			STRMAPASM(MIN),
 
-			ATT_COMP_ASM_MAP(SQRT),
-			ATT_COMP_ASM_MAP(SQRT2),
-			ATT_COMP_ASM_MAP(SQRT3),
-			ATT_COMP_ASM_MAP(SQRT4),
-			ATT_COMP_ASM_MAP(CLAMP),
-			ATT_COMP_ASM_MAP(LERP),
-			ATT_COMP_ASM_MAP(LERP2),
-			ATT_COMP_ASM_MAP(LERP3),
-			ATT_COMP_ASM_MAP(LERP4),
+			STRMAPASM(POW),
+			STRMAPASM(POW2),
+			STRMAPASM(POW3),
+			STRMAPASM(POW4),
 
-			ATT_COMP_ASM_MAP(ABS),
-			ATT_COMP_ASM_MAP(ABS2),
-			ATT_COMP_ASM_MAP(ABS3),
-			ATT_COMP_ASM_MAP(ABS4),
+			STRMAPASM(SQRT),
+			STRMAPASM(SQRT2),
+			STRMAPASM(SQRT3),
+			STRMAPASM(SQRT4),
+			STRMAPASM(CLAMP),
+			STRMAPASM(LERP),
+			STRMAPASM(LERP2),
+			STRMAPASM(LERP3),
+			STRMAPASM(LERP4),
 
-			ATT_COMP_ASM_MAP(FLOOR),
-			ATT_COMP_ASM_MAP(CEIL),
-			ATT_COMP_ASM_MAP(FRACT),
+			STRMAPASM(ABS),
+			STRMAPASM(ABS2),
+			STRMAPASM(ABS3),
+			STRMAPASM(ABS4),
+
+			STRMAPASM(FLOOR),
+			STRMAPASM(CEIL),
+			STRMAPASM(FRACT),
 
 
 			STRMAPASM(MOV),
@@ -906,14 +915,20 @@ namespace SylvanLanguage {
 			STRMAPASM(LOGICAND),
 			STRMAPASM(LOGICOR),
 
+
+			STRMAPASM(POP),
+			STRMAPASM(MARKBP),
+			STRMAPASM(FUNCTIONRET)
+
+
 		};
 
 		inline void AddMemberFunction(std::string varTypeName, std::string memberFunctionName, std::string ret, std::vector<std::string> args, std::string asmb) {
 			InlineMemberFunction[varTypeName][memberFunctionName] = SInlineFunctionDesc{ ret, args, asmb };
 		}
 
-		inline void AddMemberVariable(std::string varTypeName, std::string memberVarName, std::string type, bool isConstant) {
-			InlineMemberVariable[varTypeName][memberVarName] = SMemberVaribleDesc{ type, isConstant };
+		inline void AddMemberVariable(std::string varTypeName, std::string memberVarName, std::string type, bool isConstant, unsigned short offest) {
+			InlineMemberVariable[varTypeName][memberVarName] = SMemberVaribleDesc{ type, isConstant, offest };
 		}
 
 		inline void AddStandradFunction(std::string functionName, std::string ret, std::vector<std::string> args, std::string asmb) {
@@ -923,13 +938,13 @@ namespace SylvanLanguage {
 		inline void AddMarcoFloat(std::string MarcoName, double value) {
 			InlineMarcoFloat[MarcoName] = value;
 		}
-
-		inline std::optional<SInlineFunctionDesc> FindMemberFunction(const std::string& variableType, const std::string& memberFuntionName) {
+	public:
+		inline std::optional<SInlineFunctionDesc> FindMemberFunction(const std::string& variableType, const std::string& memberFunctionName) {
 
 			auto itor1 = InlineMemberFunction.find(variableType);
 
 			if (itor1 != InlineMemberFunction.end()) {
-				auto itor2 = itor1->second.find(memberFuntionName);
+				auto itor2 = itor1->second.find(memberFunctionName);
 				if (itor2 != itor1->second.end()) {
 					return itor2->second;
 				}
@@ -960,6 +975,26 @@ namespace SylvanLanguage {
 			}
 
 			return std::nullopt;
+		}
+
+		inline std::optional<SBindingFunctionDesc> FindBindingFunction(const std::string& functionName) {
+			auto itor1 = BindingFunction.find(functionName);
+
+			if (itor1 != BindingFunction.end()) {
+				return itor1->second;
+			}
+
+			return std::nullopt;
+		}
+
+
+		template<class F>
+		inline bool AddBindingFunction(std::string functionName, const std::vector<std::string>& type, const std::string retType, const F func) {
+
+		}
+
+		inline bool RemoveBindingFunction(std::string functionName) {
+
 		}
 
 
@@ -1010,17 +1045,17 @@ namespace SylvanLanguage {
 
 
 			//添加成员函数
-			AddMemberVariable("vector2", "x", "float", false);
-			AddMemberVariable("vector2", "y", "float", false);
+			AddMemberVariable("vector2", "x", "float", false, 0);
+			AddMemberVariable("vector2", "y", "float", false, 8);
 
-			AddMemberVariable("vector3", "x", "float", false);
-			AddMemberVariable("vector3", "y", "float", false);
-			AddMemberVariable("vector3", "z", "float", false);
+			AddMemberVariable("vector3", "x", "float", false, 0);
+			AddMemberVariable("vector3", "y", "float", false, 8);
+			AddMemberVariable("vector3", "z", "float", false, 16);
 
-			AddMemberVariable("vector4", "x", "float", false);
-			AddMemberVariable("vector4", "y", "float", false);
-			AddMemberVariable("vector4", "z", "float", false);
-			AddMemberVariable("vector4", "w", "float", false);
+			AddMemberVariable("vector4", "x", "float", false, 0);
+			AddMemberVariable("vector4", "y", "float", false, 8);
+			AddMemberVariable("vector4", "z", "float", false, 16);
+			AddMemberVariable("vector4", "w", "float", false, 24);
 
 
 			//添加函数
@@ -1111,40 +1146,292 @@ namespace SylvanLanguage {
 			AddStandradFunction("fract", "float", { "float" }, "FRACT");
 
 		}
+
+		inline std::optional<ESlgd87Asm> FindAsm(const std::string& asmStr) {
+			auto itor = StrMapAsm.find(asmStr);
+			if(itor == StrMapAsm.end()) {
+				return std::nullopt;
+			}
+			else {
+				return itor->second;
+			}
+		}
+		
 	private:
 		unsigned short AsmIdx = 0x8000;
+
 	};
 
-
+	
 	class D87AssemblyWriter {
-		AssemblyData* data;
 	public:
-		inline D87AssemblyWriter() : data(nullptr) {}
-		inline D87AssemblyWriter(AssemblyData* AsmData) : data(AsmData) {}
+		AssemblyData* data;
+		CompilerConfig * mConfig;
 
-		inline void BindAsmData(AssemblyData* AsmData) { data = AsmData; }
+		inline D87AssemblyWriter(AssemblyData* AsmData, CompilerConfig* cfg) : data(AsmData), mConfig(cfg) {}
 
 		inline void MODULE_DEP(std::string& path) {
 			data->AddValue<unsigned short>((unsigned short)ESlgd87Asm::MODULE_DEP);
 			data->AddString(path);
 		}
 
-		inline void MODULE_SELF(std::string& path) {
-			data->AddValue<unsigned short>((unsigned short)ESlgd87Asm::MODULE_SELF);
-			data->AddString(path);
+		//二元运算符 和 赋值
+		
+		inline bool BIN_OPERATE(const std::string& ASM, const std::string& A, const std::string& B, 
+								const std::string& AModulePath, const std::string& BModulePath, 
+								size_t offestA, size_t offestB,
+								unsigned short memberOffestA, unsigned short memberOffestB,
+								short regA, short regB,
+								int constTypeA, int constTypeB,
+								long long conLLA, long long conLLB,
+								double conDA, double conDB, 
+								std::string conSA, std::string conSB) {
+			auto it = FindAsm(ASM);
+			if (it.has_value()) {
+				data->AddValue<unsigned short>((unsigned short)it.value());
+				std::cout << ASM << " ";
+				if (regA != -1) {
+					data->AddValue<unsigned char>((unsigned char)0x02);
+					data->AddValue<unsigned char>(regA);
+					
+					std::cout << "0x02" << " ";
+					if (regA == 127) {
+						std::cout << regA << "(RET), ";
+					}
+					else {
+						std::cout << regA << ", ";
+					}
+				}
+				else if (AModulePath != "") {
+					data->AddValue<unsigned char>((unsigned char)0x01);
+					data->AddString(AModulePath);
+					data->AddString(A);
+					
+					std::cout << "0x01" << " ";
+					std::cout << AModulePath << " ";
+					std::cout << A << " ";
+					std::cout << memberOffestA << ", ";
+				}
+				else if (constTypeA != 0) {
+
+					data->AddValue<unsigned char>((unsigned char)0x04);
+					std::cout << "0x04 ";
+					if (constTypeA == 1) {
+						data->AddValue<long long>(conLLA);
+						printf("%lld, ", conLLA);
+					}
+					else if (constTypeA == 2) {
+						data->AddValue<double>(conDA);
+						printf("%llf, ", conDA);
+					}
+					else if (constTypeA == 3) {
+						data->AddString(conSA);
+						printf("%s, ", conSA.c_str());
+					}
+				}
+				else {
+					data->AddValue<unsigned char>((unsigned char)0x00);
+					data->AddValue<size_t>(offestA + memberOffestA);
+					data->AddValue<unsigned short>(memberOffestA);
+					
+					std::cout << "0x00 ";
+					std::cout << offestA << "+";
+					std::cout << memberOffestA << "=";
+					std::cout << offestA + memberOffestA << ", ";
+				}
+
+				
+				//B
+				if (regB != -1) {
+					data->AddValue<unsigned char>((unsigned char)0x02);
+					data->AddValue<unsigned char>(regB);
+
+					std::cout << "0x02" << " ";
+					if (regB == 127) {
+						std::cout << regB << "(RET)\n";
+					}
+					else {
+						std::cout << regB << "\n";
+					}
+				}
+				else if (BModulePath != "") {
+					data->AddValue<unsigned char>((unsigned char)0x01);
+					data->AddString(BModulePath);
+					data->AddString(B);
+					data->AddValue<unsigned short>(memberOffestB);
+
+					std::cout << "0x01" << " ";
+					std::cout << BModulePath << " ";
+					std::cout << B << " ";
+					std::cout << memberOffestB << "\n";
+				}
+				else if (constTypeB != 0) {
+
+					data->AddValue<unsigned char>((unsigned char)0x04);
+					std::cout << "0x04 ";
+					if (constTypeB == 1) {
+						data->AddValue<long long>(conLLB);
+						std::cout << conLLB << "\n";
+
+					}
+					else if (constTypeB == 2) {
+						data->AddValue<double>(conDB);
+						std::cout << conDB << "\n";
+					}
+					else if (constTypeB == 3) {
+						data->AddString(conSB);
+						std::cout << conSB << "\n";
+					}
+				}
+				else {
+					data->AddValue<unsigned char>((unsigned char)0x00);
+					data->AddValue<size_t>(offestB + memberOffestB);
+
+					std::cout << "0x00 ";
+					std::cout << offestB << "+";
+					std::cout << memberOffestB << "=";
+					std::cout << offestB + memberOffestB << "\n";
+				}
+
+				return true;
+			}
+			return false;
+		}
+		
+
+		//一元运算符
+		inline bool UNARY_OPERATE(const std::string& ASM, const std::string& A, const std::string& AModulePath, size_t offestA, unsigned short memberOffestA, short regA, int constType, long long conLL, double conD, std::string conS) {
+			auto it = FindAsm(ASM);
+			if (it.has_value()) {
+				data->AddValue<unsigned short>((unsigned short)it.value());
+				std::cout << ASM << " ";
+				if (regA != -1) {
+					data->AddValue<unsigned char>((unsigned char)0x02);
+					data->AddValue<unsigned char>(regA);
+					std::cout << "0x02" << " ";
+					if (regA == 127) {
+						std::cout << regA << "(RET)\n";
+					}
+					else {
+						std::cout << regA << "\n";
+					}
+				}else if (AModulePath != "") {
+					data->AddValue<unsigned char>((unsigned char)0x01);
+					data->AddString(AModulePath);
+					data->AddString(A);
+					data->AddValue<unsigned short>(memberOffestA);
+					std::cout << "0x01" << " ";
+					std::cout << AModulePath << " ";
+					std::cout << A << " ";
+					std::cout << memberOffestA << "\n";
+				}
+				else if (constType != 0) {
+					
+					data->AddValue<unsigned char>((unsigned char)0x04);
+					std::cout << "0x04 ";
+					if (constType == 1) {
+						data->AddValue<long long>(conLL);
+						printf("%lld\n", conLL);
+						
+					}else if (constType == 2) {
+						data->AddValue<double>(conD);
+						printf("%llf\n", conD);
+					}
+					else if (constType == 3) {
+						data->AddString(conS);
+						printf("%s\n", conS.c_str());
+					}
+				}
+				else {
+					data->AddValue<unsigned char>((unsigned char)0x00);
+					data->AddValue<size_t>(offestA + memberOffestA);
+
+					std::cout << "0x00 ";
+					std::cout << offestA << "+";
+					std::cout << memberOffestA << "=";
+					std::cout << offestA + memberOffestA << "\n";		
+				}
+	
+				return true;
+			}
+			return false;
 		}
 
-		inline void GLOBAL_VAR_MALLOC(size_t memSize) {
-			data->AddValue<unsigned short>((unsigned short)ESlgd87Asm::GLOBAL_VAR_MALLOC);
-			data->AddValue<size_t>(memSize);
+		inline bool CALL_INLINE(const std::string& functionName) {
+			auto it = FindAsm(functionName);
+			if (it.has_value()) {
+				std::cout << functionName << "\n";
+				data->AddValue<unsigned short>((unsigned short)it.value());
+				return true;
+			}
+			return false;
 		}
 
-		inline void ATTRITUBE_LET(std::string name, e_SlgType type, bool isPrivateAttribute) {
-			data->AddValue<unsigned short>((unsigned short)ESlgd87Asm::ATTRITUBE_LET);
-			data->AddString(name);
-			data->AddValue<unsigned short>((unsigned short)type);
-			data->AddValue<unsigned char>((unsigned char)(isPrivateAttribute ? 1 : 0));
+		inline bool CALL(const std::string& moduleName, const std::string& functionName) {
+			auto it = FindAsm("CALL");
+			if (it.has_value()) {
+				std::cout << "CALL ";
+				
+				data->AddValue<unsigned short>((unsigned short)it.value());
+				data->AddString(moduleName);
+				data->AddString(functionName);
+				
+				std::cout << moduleName << " ";
+				std::cout << functionName << "\n";
+				return true;
+			}
+			return false;
 		}
+
+		inline bool CALL_MEMBER_FUNC(const std::string& functionName, const std::string& modulePath, const std::string& globalVarName, size_t localvarOffest) {
+			auto it = FindAsm(functionName);
+			if (it.has_value()) {
+				std::cout << functionName << " ";
+				data->AddValue<unsigned short>((unsigned short)it.value());
+				if (globalVarName != "") {
+					data->AddValue<unsigned char>((unsigned char)0x01);
+
+					std::cout << "0x01 ";
+					data->AddString(modulePath);
+					data->AddString(globalVarName);
+
+					std::cout << modulePath << " ";
+					std::cout << globalVarName << "\n";
+				}
+				else {
+					data->AddValue<unsigned char>((unsigned char)0x00);
+					std::cout << "0x01 ";
+					data->AddValue<size_t>(localvarOffest);
+					std::cout << localvarOffest << "\n";
+				}
+				return true;
+			}
+			return false;
+		}
+
+		inline void MARK_BP(int offest) {
+			auto it = FindAsm("MARKBP");
+			if (it.has_value()) {
+				data->AddValue<unsigned short>((unsigned short)it.value());
+				data->AddValue<int>(offest);
+				std::cout << "MARKBP" << " " << offest << "\n";
+			}
+		}
+
+		inline void FUNTCION_RET() {
+			auto it = FindAsm("FUNCTIONRET");
+			if (it.has_value()) {
+				data->AddValue<unsigned short>((unsigned short)it.value());
+				std::cout << "FUNCTIONRET" << "\n";
+			}
+		}
+
+	private:
+		inline std::optional<ESlgd87Asm> FindAsm(const std::string& asmStr) {
+			
+			return mConfig->FindAsm(asmStr);
+		}
+
 	};
 	class RuleTable {
 	public:
@@ -1167,7 +1454,6 @@ namespace SylvanLanguage {
 			{"using",	ETokenDesc::KEYWORLD_using},
 			{"module",	ETokenDesc::KEYWORLD_module},
 			{"export",	ETokenDesc::KEYWORLD_export},
-			{"extern",	ETokenDesc::KEYWORLD_extern},
 			{"if",		ETokenDesc::KEYWORLD_if},
 			{"else",	ETokenDesc::KEYWORLD_else},
 			{"return",	ETokenDesc::KEYWORLD_return},
@@ -1185,6 +1471,7 @@ namespace SylvanLanguage {
 			{'*', ETokenDesc::MUL},
 			{'/', ETokenDesc::DIV},
 			{'%', ETokenDesc::MOD},
+		
 			{'=', ETokenDesc::EQUAL},
 			{'&', ETokenDesc::AND},
 			{'|', ETokenDesc::OR},
@@ -1275,13 +1562,13 @@ namespace SylvanLanguage {
 			{'.', ETokenDesc::MEMBERACCESS},
 			{',', ETokenDesc::COMMA},
 			{';', ETokenDesc::END},
-			{'@', ETokenDesc::ATTRIBUTE}
 		};
 	};
 
 	class TypeRuler {
 	public:
 		static inline std::unordered_map<std::string, size_t> SlgTypeSize{
+			{"void", 8},
 			{"int", 8},
 			{"float", 8},
 			{"string", 8},

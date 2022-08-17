@@ -9,7 +9,7 @@ namespace SylvanLanguage {
 			mToken->PrintTokens();
 			mTokens = std::move(mToken->GetTokens());
 			mModuleInfo->mAssemblyData = std::unique_ptr<AssemblyData>(new AssemblyData(1024));
-			mAsmGen.BindAsmData(mModuleInfo->mAssemblyData.get());
+			mAsmGen = std::make_unique<D87AssemblyWriter>(mModuleInfo->mAssemblyData.get(), mCompilerConfig);
 			Splitstatement();
 		}
 		else {
@@ -33,8 +33,8 @@ namespace SylvanLanguage {
 
 	void SourceCodeCompile::ShowProgramTable() {
 
-		for (auto i : mModuleInfo->mRunTimeAttributeTable) {
-			std::cout << i.first << "\t\tType:" << i.second.mType << "\tIsPrivate:" << (i.second.mIsPrivate ? "yes" : "no") << std::endl;
+		for (auto i : mModuleInfo->mGlobalVariableTable) {
+			std::cout << i.first << "\t\tType:" << i.second.mType <<  std::endl;
 		}
 	}
 
@@ -44,7 +44,6 @@ namespace SylvanLanguage {
 		size_t bracketDepth = 0;
 
 		for (size_t i = 0; i < tokenSize; ++i) {
-
 			switch (mTokens[i].mType)
 			{
 			case ETokenType::KEYWORD: {
@@ -68,10 +67,9 @@ namespace SylvanLanguage {
 
 			case ETokenType::IDENTIFIER:
 				if (IsDeclare(i)) {
-					if (!D_Declare(i, bracketDepth)) {
+					if (!D_Declare(i, bracketDepth, false)) {
 						return;
 					}
-					break;
 				}
 				else if (!D_IntentifierAnalysis(i, bracketDepth))
 					return;
@@ -83,6 +81,10 @@ namespace SylvanLanguage {
 				}
 				if (mTokens[i].mDesc == ETokenDesc::BRACKET_CURLY_END) {
 					bracketDepth--;
+					if (bracketDepth > 9999999) {
+						mErrorMachine->AddError("Mismatched parentheses.", mTokens[i].mLineNumber, mTokens[i].mColNumber);
+						return;
+					}
 				}
 				break;
 			}
@@ -90,13 +92,142 @@ namespace SylvanLanguage {
 				mErrorMachine->AddError("Meaningless Statement.", mTokens[i].mLineNumber, mTokens[i].mColNumber);
 				return;
 			}
+
+
 			if (!mErrorMachine->Success()) {
 				return;
 			}
 		}
+
+		
+
+		if (bracketDepth != 0) {
+			mErrorMachine->AddError("Meaningless Statement.", mTokens[tokenSize - 1].mLineNumber, mTokens[tokenSize - 1].mColNumber);
+			return;
+		}
+		printf("==================================================================================\n");
+		for (auto& i : mFunctionDefineTable) {
+			std::cout << i.mFunctionName << ":   " << i.IsExport << "  ";
+			for (auto& i2 : i.mArgs) {
+				std::cout << "(" << i2.first << "," << i2.second << ")  ";
+			}
+			std::cout << "RET " << i.mRetType << "   ";
+			std::cout << "body " << i.mFunctionBody.first << " to " << i.mFunctionBody.second << "\n";
+
+		}
+
+		for (auto& i : mModuleInfo->mFunctionTable) {
+			std::cout << i.first << ":   " << i.second.isExport << "  ";
+			for (auto& i2 : i.second.mFunctionArgsTypeDesc) {
+				std::cout << i2 << " ";
+			}
+			std::cout << "RET " << i.second.mFunctionReturnTypeDesc << "\n";
+		}
+		printf("==================================================================================\n");
+
+		for (auto& i : mFunctionDefineTable) {
+			D_FunctionBodySolver(i);
+		}	
 	}
 
-	bool SourceCodeCompile::D_using(size_t& idx, size_t& bDepth) {
+	bool SourceCodeCompile::D_FunctionBodySolver(SFunctionDefineInfo& info) {
+		//在调用函数之前需要markBP
+		
+		size_t FunctionStartAddress = mAsmGen->data->GetCurrentSize();
+		
+		size_t tokenSize = info.mFunctionBody.second;
+		int depth = 2;
+		
+		int argSize = 0;
+		for (auto& i : info.mArgs) {
+			std::string& type = i.first;
+			std::string& name = i.second;
+			
+			if (LocalVariableDefaultDefineDetail(type, name, depth)) {
+				int vsize = GetTypeSize(type);
+				argSize += vsize;
+			}
+			else {
+				return false;
+			}
+		}
+		//BP MARK argSize;
+		ASM_MARK_BP(argSize);
+
+		size_t bodyStart = info.mFunctionBody.first + 1;
+		size_t bodyEnd = info.mFunctionBody.second - 1;
+		
+		if (!D_CodeBlockSolver(bodyStart, bodyEnd, depth)) {
+			return false;
+		}
+		
+		ASM_FUNTCION_RET();
+		mLocalVariable.clear();
+		std::string funName = info.mFunctionName;
+		std::cout << "FUNCTION " << funName << ": " << FunctionStartAddress << " to " << mAsmGen->data->GetCurrentSize() << std::endl;
+		mModuleInfo->mFunctionTable[funName].CodeOffest = FunctionStartAddress;
+		return true;
+	}
+
+	void SourceCodeCompile::ASM_FUNTCION_RET() {
+		mAsmGen->FUNTCION_RET();
+	}
+
+	bool SourceCodeCompile::D_CodeBlockSolver(size_t idxStart, size_t idxEnd, int depth) {
+		if (idxEnd - idxStart < 2) {
+			return true;
+		}
+		
+		
+		size_t tokenSize = mTokens.size();
+		size_t idx = idxStart;
+		
+		while (true) {
+			if (idx >= idxEnd) { 
+				LocalVariableBlockPop();
+				break; 
+			}
+			switch (mTokens[idx].mDesc) {
+			case ETokenDesc::BRACKET_CURLY_START: {
+				size_t bracketDepth = 1;
+				idx++;
+
+				size_t subStart = idx;
+				while (bracketDepth == 0) {
+					if (mTokens[idx].mDesc == ETokenDesc::BRACKET_CURLY_START) {
+						bracketDepth++;
+					}
+					else if (mTokens[idx].mDesc == ETokenDesc::BRACKET_CURLY_END) {
+						bracketDepth--;
+						if (bracketDepth == 0) {
+							D_CodeBlockSolver(subStart, idx - 1, depth + 1);
+							break;
+						}
+					}
+					idx++;
+				}
+			}break;
+			case ETokenDesc::IDENTIFIER: 
+				if (IsDeclare(idx)) {
+					if (!D_Declare(idx, depth, true)) {
+						return false;
+					}
+				}
+				else if (!D_IntentifierAnalysis(idx, depth)) 
+					return false;
+				break;
+				
+			case ETokenDesc::KEYWORLD_return: break;
+			case ETokenDesc::KEYWORLD_break: break;
+			
+			}
+			idx++;
+		}
+		return true;
+	}
+
+
+	bool SourceCodeCompile::D_using(size_t& idx, size_t bDepth) {
 		if (idx + 2 > mTokens.size()) {
 			mErrorMachine->AddError("Missing content after using. Format: using \"module Path\";", mTokens[idx].mLineNumber, mTokens[idx].mColNumber);
 			return false;
@@ -113,7 +244,6 @@ namespace SylvanLanguage {
 		}
 
 		std::string moduleName = mTokens[idx].GetValue<std::string>();
-		mAsmGen.MODULE_DEP(moduleName);
 
 		idx++;
 		if (mTokens[idx].mDesc != ETokenDesc::END) {
@@ -152,7 +282,6 @@ namespace SylvanLanguage {
 		}
 
 		mModuleInfo->mCurrentModuleName = moduleName;
-		mAsmGen.MODULE_SELF(moduleName);
 
 		idx++;
 		if (mTokens[idx].mDesc != ETokenDesc::BRACKET_CURLY_START) {
@@ -163,16 +292,14 @@ namespace SylvanLanguage {
 		return true;
 	}
 
-	bool SourceCodeCompile::D_Declare(size_t& idx, size_t& bDepth, bool statementCompile) {
-
-		if (bDepth == 0) {
-			mErrorMachine->AddError("Declare statement must be in code block.", mTokens[idx].mLineNumber, mTokens[idx].mColNumber);
-			return false;
+	bool SourceCodeCompile::D_Declare(size_t& idx, size_t bDepth, bool ignoreDepth) {
+		if (ignoreDepth != true) {	
+			if (bDepth == 0 ) {
+				mErrorMachine->AddError("Declare statement must be in code block.", mTokens[idx].mLineNumber, mTokens[idx].mColNumber);
+				return false;
+			}
 		}
-
-		bool attribute = false;
 		bool function = false;
-		bool Private = false;
 
 		std::string typeName;
 		std::string varName;
@@ -180,18 +307,8 @@ namespace SylvanLanguage {
 		typeName = mTokens.at(idx).GetValue<std::string>(); 	//获取类型名字
 		idx++;
 
-		if (mTokens.at(idx).mDesc == ETokenDesc::IDENTIFIER && mTokens.at(idx).GetValue<std::string>() == "private") {
-			Private = true;
-			idx++;
-		}
-
-		if (mTokens.at(idx).mDesc == ETokenDesc::ATTRIBUTE) {
-			attribute = true;
-			idx++;
-		}
-
 		if (mTokens.at(idx).mDesc != ETokenDesc::IDENTIFIER) {
-			mErrorMachine->AddError("Declaration identifier must be followed by an identifier(a-z, A-Z, _, 0-9).", mTokens[idx].mLineNumber, mTokens[idx].mColNumber);
+			mErrorMachine->AddError("Declaration identifier must be followed by an identifier(a-z, A-Z, _, 0-9) and start with no-number letter .", mTokens[idx].mLineNumber, mTokens[idx].mColNumber);
 			return false;
 		}
 
@@ -201,8 +318,8 @@ namespace SylvanLanguage {
 		//检查默认定义, 赋值定义, 函数定义
 		if (mTokens.at(idx).mDesc == ETokenDesc::END) {
 			//默认定义
-			if (attribute) {
-				AttributeDefaultDefine(idx, typeName, varName, Private);
+			if (bDepth == 1) {
+				return GlobalVariableDefaultDefine(idx, typeName, varName);
 			}
 			else {
 				if (bDepth < 2) {
@@ -210,30 +327,28 @@ namespace SylvanLanguage {
 					return false;
 				}
 				else {
-					LocalVariableDefaultDefine(idx, typeName, varName, bDepth);
+					return LocalVariableDefaultDefine(idx, typeName, varName, bDepth);
 				}
 			}
 		}
 		else if (mTokens.at(idx).mDesc == ETokenDesc::EQUAL) {
 			//赋值定义
-			if (attribute) {
-				AttributeAssignmentDefine(typeName, varName, idx, Private);
+			if (bDepth == 1) {
+				return GlobalVariableAssignmentDefine(typeName, varName, idx);
 			}
 			else {
-				LocalVariableAssignmentDefine(typeName, varName, idx, bDepth);
+				return LocalVariableAssignmentDefine(typeName, varName, idx, bDepth);
 			}
 		}
 		else if (mTokens.at(idx).mDesc == ETokenDesc::BRACKET_ROUND_START) {
 			//函数定义
-			FunctionDefine(typeName, varName, idx);
+			return FunctionDeclare(typeName, varName, idx);
 		}
 		else {
 			//错误
 			mErrorMachine->AddError("Invalid statement found in the Declaration statement.", mTokens[idx].mLineNumber, mTokens[idx].mColNumber);
 			return false;
 		}
-
-		return true;
 	}
 
 	size_t SourceCodeCompile::GetTypeSize(std::string tp) {
@@ -251,59 +366,228 @@ namespace SylvanLanguage {
 			return true;
 		}
 		else {
+
 			return false;
 		}
 	}
+	
+	bool SourceCodeCompile::FunctionDeclare(std::string returnType, std::string functionName, size_t& idx) {
+		//定义头
+		SFunctionDefineInfo functionInfo{};
+		functionInfo.mRetType = returnType;
+		functionInfo.mFunctionName = functionName;
 
-	bool SourceCodeCompile::FunctionDefine(std::string returnType, std::string functionName, size_t& idx) {
+		size_t r_idx = idx + 1;
 
+		while (true) {
 
+			if (r_idx >= mTokens.size()) {
+				mErrorMachine->AddError("Missing \")\" in Function defintion statement.", mTokens[r_idx].mLineNumber, mTokens[r_idx].mColNumber);
+				return false;
+			}
+			else if (mTokens[r_idx].mDesc == ETokenDesc::IDENTIFIER) {
+				std::string type = mTokens[r_idx].GetValue<std::string>();
+				if (GetTypeSize(type) != 0) {
+					r_idx++;
+					if (mTokens[r_idx].mDesc == ETokenDesc::IDENTIFIER) {
+						std::string vname = mTokens[r_idx].GetValue<std::string>();
+						functionInfo.mArgs.push_back(std::make_pair(type, vname));
+					}
+					else {
+						mErrorMachine->AddError("Need a Identifier after the type " + type + ".", mTokens[r_idx].mLineNumber, mTokens[r_idx].mColNumber);
+						return false;
+					}
+
+				}
+				else {
+					mErrorMachine->AddError("Function Define unknown type :" + type + ".", mTokens[r_idx].mLineNumber, mTokens[r_idx].mColNumber);
+					return false;
+				}
+			}
+			else if (mTokens[r_idx].mDesc == ETokenDesc::COMMA) {
+			}
+			else if (mTokens[r_idx].mDesc == ETokenDesc::BRACKET_ROUND_END) {
+				r_idx++;
+				break;
+			}
+			else {
+				mErrorMachine->AddError("Wrong character. In Function arguments list, you must use identifiers or commas.", mTokens[r_idx].mLineNumber, mTokens[r_idx].mColNumber);
+				return false;
+			}
+			r_idx++;
+		}
+		
+		if (mTokens[r_idx].mDesc == ETokenDesc::KEYWORLD_export) {
+			functionInfo.IsExport = true;
+			r_idx++;
+		}
+
+		if (mTokens[r_idx].mDesc == ETokenDesc::BRACKET_CURLY_START) {
+			size_t bodyStart = r_idx;
+			size_t bodyEnd = r_idx;
+			r_idx++;
+			int bracketMask = 1;
+			while (true) {
+				if (r_idx >= mTokens.size()) {
+					mErrorMachine->AddError("Missing end of Function body.", mTokens[bodyStart].mLineNumber, mTokens[bodyStart].mColNumber);
+					return false;
+				}
+				else if (mTokens[r_idx].mDesc == ETokenDesc::BRACKET_CURLY_END) {
+					bracketMask--;
+					if (bracketMask == 0) {
+						bodyEnd = r_idx;
+						functionInfo.mFunctionBody = std::make_pair(bodyStart, bodyEnd);
+
+						//printf("\nFunction Name : %s\nReturn Type: %s\nIsExport : %s\nArgs: %d \n", functionInfo.mFunctionName.c_str(), functionInfo.mRetType.c_str(), (functionInfo.IsExport ? "yes" : "no"), functionInfo.mArgs.size());
+						//for (auto& i : functionInfo.mArgs) {
+						//	printf("| Type: %s    Name: %s\n", i.first.c_str(), i.second.c_str());
+						//}
+						//printf("FunctionBody: From %d to %d\n", functionInfo.mFunctionBody.first, functionInfo.mFunctionBody.second);
+
+						idx = r_idx;
+						break;
+					}
+				}
+				else if (mTokens[r_idx].mDesc == ETokenDesc::BRACKET_CURLY_START) {
+					bracketMask++;
+				}
+
+				r_idx++;
+			}
+
+		}
+		else {
+			mErrorMachine->AddError("Missing Function body.", mTokens[r_idx].mLineNumber, mTokens[r_idx].mColNumber);
+			return false;
+		}
+
+		for (int i = 0; i < functionInfo.mArgs.size(); ++i) {
+			for (int j = i + 1; j < functionInfo.mArgs.size(); ++j) {
+				if (functionInfo.mArgs[i].second == functionInfo.mArgs[j].second) {
+					mErrorMachine->AddError("Duplicate argument name: " + functionInfo.mArgs[i].second + ".", mTokens[r_idx].mLineNumber, mTokens[r_idx].mColNumber);
+					return false;
+				}
+			}
+		}	
+		
+		auto itor = mModuleInfo->mFunctionTable.find(functionInfo.mFunctionName);
+		if(itor != mModuleInfo->mFunctionTable.end()) {
+			mErrorMachine->AddError("Function " + functionInfo.mFunctionName + " is already defined.", mTokens[idx].mLineNumber, mTokens[idx].mColNumber);
+			return false;
+		}
+		else {
+			mFunctionDefineTable.push_back(functionInfo);
+
+			std::vector<std::string> types{};
+			for (auto& i : functionInfo.mArgs) {
+				types.push_back(i.first);
+			}
+	
+			mModuleInfo->mFunctionTable[functionInfo.mFunctionName] = SModuleFunctionDesc {
+				types,
+				functionInfo.mRetType,
+				0,
+				functionInfo.IsExport
+			};
+		}
+		
 		return true;
 	}
 
-	bool SourceCodeCompile::AttributeDefaultDefine(int r_idx, std::string varType, std::string varName, bool isPrivate) {
 
-		varName = "@" + varName;
-		if (mModuleInfo->mRunTimeAttributeTable.find(varName) == mModuleInfo->mRunTimeAttributeTable.end()) {
 
-			mModuleInfo->mRunTimeAttributeTable[varName] = std::move(SModuleAttributeDesc{ varType , isPrivate });
-			return true;
-		}
-		else {
-			mErrorMachine->AddError("Attribute \"" + varName + "\" has been defined.", mTokens[r_idx].mLineNumber, mTokens[r_idx].mColNumber);
+	bool SourceCodeCompile::GlobalVariableDefaultDefine(int r_idx, std::string varType, std::string varName) {
+
+		auto it = FindGlobalVariable(varName);
+		if (it.has_value()) {
+			mErrorMachine->AddError("Global Variable \"" + varName + "\" has been defined.", mTokens[r_idx].mLineNumber, mTokens[r_idx].mColNumber);
 			return false;
 		}
-
+		else {
+			mModuleInfo->mGlobalVariableTable[varName] = std::move(SModuleGlobalVariableDesc{ varType });
+			return true;
+		}
 	}
 
 	bool SourceCodeCompile::LocalVariableDefaultDefine(int r_idx, std::string varType, std::string varName, int depth) {
 
 		if (mLocalVariable.size() < depth - 1) {
-
 			mLocalVariable.push_back(SLocalVariableCodeBlock{});
 		}
 
-		if (mLocalVariable[depth].mLocalVariable.find(varName) == mLocalVariable[depth].mLocalVariable.end()) {
+		auto it = FindLocalVariable(varName);
+		if (it.has_value()) {
 
-			size_t size = GetTypeSize(varType);
-
-			mLocalVariable[depth].mLocalVariable[varName].mTypeStr = varType;
-			mLocalVariable[depth].mLocalVariable[varName].mVariableSize = size;
-			mLocalVariable[depth].mLocalVariable[varName].mVariableOffest = mLocalVariableStackSize;
-			mLocalVariable[depth].mSize += size;
-			mLocalVariableStackSize += size;
-
-			return true;
-		}
-		else {
 			mErrorMachine->AddError("Local variable \"" + varName + "\"" + "has been defined.", mTokens[r_idx].mLineNumber, mTokens[r_idx].mColNumber);
 			return false;
 		}
+		else {
+			size_t size = GetTypeSize(varType);
+
+			mLocalVariable[depth - 2].mLocalVariable[varName].mTypeStr = varType;
+			mLocalVariable[depth - 2].mLocalVariable[varName].mVariableSize = size;
+			mLocalVariable[depth - 2].mLocalVariable[varName].mVariableOffest = mLocalVariableStackSize;
+			mLocalVariable[depth - 2].mSize += size;
+			mLocalVariableStackSize += size;
+			std::cout << "Local Variable Layer Create : " << depth - 2 << " Total Size: " << mLocalVariableStackSize << " Layer Count: " << mLocalVariable.size() << "\n";
+
+			return true;
+		}
 	}
 
-	bool SourceCodeCompile::AttributeAssignmentDefine(std::string varType, std::string varName, size_t& idx, bool isPrivate) {
-		if (AttributeDefaultDefine(idx, varType, varName, isPrivate)) {
-			size_t r_idx = idx - 2;
+	bool SourceCodeCompile::LocalVariableDefaultDefineDetail(std::string varType, std::string varName, int depth) {
+			
+		if (mLocalVariable.size() < depth - 1) {
+			mLocalVariable.push_back(SLocalVariableCodeBlock{});
+		}
+		
+		size_t size = GetTypeSize(varType);
+
+		mLocalVariable[depth - 2].mLocalVariable[varName].mTypeStr = varType;
+		mLocalVariable[depth - 2].mLocalVariable[varName].mVariableSize = size;
+		mLocalVariable[depth - 2].mLocalVariable[varName].mVariableOffest = mLocalVariableStackSize;
+		mLocalVariable[depth - 2].mSize += size;
+		mLocalVariableStackSize += size;
+		
+		std::cout << "Local Variable Layer Create : " << depth - 2 << " Total Size: " << mLocalVariableStackSize << " Layer Count: " << mLocalVariable.size() << "\n";
+
+		return true;
+	}
+	void SourceCodeCompile::ASM_MARK_BP(int offest) {
+		mAsmGen->MARK_BP(offest);
+	}
+
+	bool SourceCodeCompile::LocalVariableBlockRemove(int depth) {
+		if (depth < 2) return false;
+		if (mLocalVariable.size() >= depth - 1) {
+			size_t sizep = 0;
+			for (int i = depth - 1; i < mLocalVariable.size(); ++i) {
+				sizep += mLocalVariable[i].mSize;
+			}
+
+			//pop sizep;
+			mLocalVariableStackSize -= sizep;
+			mLocalVariable.erase(mLocalVariable.begin() + depth - 2, mLocalVariable.end());
+			
+			std::cout << "LocalVariableBlockRemove : " << depth - 2 << " Total Size: " << mLocalVariableStackSize << " Layer Count: " << mLocalVariable.size() - 1 << "\n";
+			return true;
+		}
+		return false;
+	}
+
+	bool SourceCodeCompile::LocalVariableBlockPop() {
+		if (mLocalVariable.size() < 1) return false;
+		mLocalVariableStackSize -= mLocalVariable[mLocalVariable.size() - 1].mSize;
+		
+		std::cout << "Local Variable Layer Pop : " << mLocalVariable.size() - 1 << " Total Size: " << mLocalVariableStackSize << " Layer Count: " <<  mLocalVariable.size() - 1  << "\n";
+		
+		mLocalVariable.erase(mLocalVariable.begin() + mLocalVariable.size() - 1);
+		return true;
+	}
+
+	bool SourceCodeCompile::GlobalVariableAssignmentDefine(std::string varType, std::string varName, size_t& idx) {
+		if (GlobalVariableDefaultDefine(idx, varType, varName)) {
+			size_t r_idx = idx - 1;
 			size_t Bdepth = 0;
 			if (D_IntentifierAnalysis(r_idx, Bdepth, true)) {
 				idx = r_idx;
@@ -335,7 +619,7 @@ namespace SylvanLanguage {
 		}
 	}
 
-	bool SourceCodeCompile::D_IntentifierAnalysis(size_t& idx, size_t& bDepth, bool ignoreDepth) {
+	bool SourceCodeCompile::D_IntentifierAnalysis(size_t& idx, size_t bDepth, bool ignoreDepth) {
 		if (ignoreDepth == false) {
 			if (bDepth == 0) {
 				mErrorMachine->AddError("Identifier operation only write in code block.", mTokens[idx].mLineNumber, mTokens[idx].mColNumber);
@@ -385,18 +669,18 @@ namespace SylvanLanguage {
 		return mErrorMachine->Success();
 	}
 
-	int SourceCodeCompile::GetFreeRegister() {
-		for (int i = 0; i < 64; i++) {
+	unsigned char SourceCodeCompile::GetFreeRegister() {
+		for (int i = 0; i < 127; i++) {
 			if (mRegister[i] == 0) {
 				mRegister[i] = 1;
 				return i;
 			}
 		}
-		return 63;
+		return 126;
 	}
 
 	void SourceCodeCompile::FreeAllRegister() {
-		for (int i = 0; i < 64; i++) {
+		for (int i = 0; i < 127; i++) {
 			mRegister[i] = 0;
 		}
 	}
@@ -406,7 +690,7 @@ namespace SylvanLanguage {
 		std::vector<SStatementSegment> statementList;
 
 		size_t r_idx = start_idx;
-		int type;
+		EStatementVarType type;
 		std::string moduleName;
 		std::string mainName;
 		std::string memberName;
@@ -433,7 +717,7 @@ namespace SylvanLanguage {
 					}
 					SStatementSegment temp{};
 					temp.Idx = bracketStart;
-					temp.BasicType = 4;
+					temp.BasicType = EStatementBasicType::SUBEXPR;
 					temp.EndPos = r_idx;
 					statementList.push_back(temp);
 				}
@@ -441,14 +725,14 @@ namespace SylvanLanguage {
 			else if (bracketMask == 0 && mTokens[r_idx].IsOperator()) {
 				SStatementSegment temp{};
 				temp.Idx = r_idx;
-				temp.BasicType = 5;
+				temp.BasicType = EStatementBasicType::OPERATOR;
 				temp.Token = mTokens[r_idx];
 				statementList.push_back(temp);
 			}
 			else if (bracketMask == 0 && mTokens[r_idx].mDesc == ETokenDesc::INT) {
 				SStatementSegment temp{};
 				temp.Idx = r_idx;
-				temp.BasicType = 1;
+				temp.BasicType = EStatementBasicType::CONST_INT;
 				temp.Token = mTokens[r_idx];
 				temp.VarTypeDesc = "int";
 				statementList.push_back(temp);
@@ -456,7 +740,7 @@ namespace SylvanLanguage {
 			else if (bracketMask == 0 && mTokens[r_idx].mDesc == ETokenDesc::FLOAT) {
 				SStatementSegment temp{};
 				temp.Idx = r_idx;
-				temp.BasicType = 2;
+				temp.BasicType = EStatementBasicType::CONST_FLOAT;
 				temp.Token = mTokens[r_idx];
 				temp.VarTypeDesc = "float";
 				statementList.push_back(temp);
@@ -464,7 +748,7 @@ namespace SylvanLanguage {
 			else if (bracketMask == 0 && mTokens[r_idx].mDesc == ETokenDesc::STRING) {
 				SStatementSegment temp{};
 				temp.Idx = r_idx;
-				temp.BasicType = 3;
+				temp.BasicType = EStatementBasicType::CONST_STRING;
 				temp.Token = mTokens[r_idx];
 				temp.VarTypeDesc = "string";
 				statementList.push_back(temp);
@@ -473,7 +757,7 @@ namespace SylvanLanguage {
 
 				SStatementSegment temp{};
 				temp.Idx = r_idx;
-				temp.BasicType = 0;
+				temp.BasicType = EStatementBasicType::VARTYPE;
 				temp.VariableType = type;
 				temp.ModuleName = moduleName;
 				temp.MainName = mainName;
@@ -508,41 +792,40 @@ namespace SylvanLanguage {
 		SStatementSegment prev = statementList[list_idx];
 		list_idx++;
 
-		if (prev.BasicType == 5) {
+		if (prev.BasicType == EStatementBasicType::OPERATOR) {
 			propList.push_back(prev.Token.GetOperatorProperity());
 		}
 
 		bool hasAssignmentOperator = false;
 		for (; list_idx < statementList.size(); ++list_idx) {
-			if (statementList[list_idx].BasicType == -1) {
+			if (statementList[list_idx].BasicType == EStatementBasicType::ERROR_BASICTYPE) {
 				mErrorMachine->AddError("Unknown error, type = error.", mTokens[statementList[list_idx].Idx].mColNumber, mTokens[statementList[list_idx].Idx].mColNumber);
 				return SStatementSegment{};
 			}
 
-			if (statementList[list_idx].BasicType < 5) {
-				if (prev.BasicType != 5) {
-					std::cout << "Error Pos" << statementList[list_idx].Idx << "\n";
+			if (statementList[list_idx].BasicType < EStatementBasicType::OPERATOR) {
+				if (prev.BasicType != EStatementBasicType::OPERATOR) {
 					mErrorMachine->AddError("Missing operator before identifier.", mTokens[statementList[list_idx].Idx].mColNumber, mTokens[statementList[list_idx].Idx].mColNumber);
 					return SStatementSegment{};
 				}
 			}
-			else if (statementList[list_idx].BasicType == 5) {
+			else if (statementList[list_idx].BasicType == EStatementBasicType::OPERATOR) {
 				if (statementList[list_idx].Token.mDesc == ETokenDesc::SELFADD || statementList[list_idx].Token.mDesc == ETokenDesc::SELFSUB) {
 					if (list_idx != 1) {
 						mErrorMachine->AddError("Self Add/Sub operator is only allowed in the second location.", mTokens[statementList[list_idx].Idx].mColNumber, mTokens[statementList[list_idx].Idx].mColNumber);
 						return SStatementSegment{};
 					}
-					else if (!(prev.BasicType == 0 && (prev.VariableType == 1 || prev.VariableType == 2 || prev.VariableType == 4 || prev.VariableType == 5))) {
+					else if (!(prev.BasicType == EStatementBasicType::VARTYPE && (prev.VariableType == EStatementVarType::NORMAL_VAR || prev.VariableType == EStatementVarType::MEMBER_VAR))) {
 						mErrorMachine->AddError("Self Add/Sub operator can only be used with variables, not with subexpressions and functions.", mTokens[statementList[list_idx].Idx].mColNumber, mTokens[statementList[list_idx].Idx].mColNumber);
 						return SStatementSegment{};
 					}
 				}
 				else if (statementList[list_idx].Token.IsUnaryOperator()) {
-					if (prev.BasicType == 5 && prev.Token.IsUnaryOperator()) {
+					if (prev.BasicType == EStatementBasicType::OPERATOR && prev.Token.IsUnaryOperator()) {
 						mErrorMachine->AddError("Can't using double unary operator.", mTokens[statementList[list_idx].Idx].mLineNumber, mTokens[statementList[list_idx].Idx].mColNumber);
 						return SStatementSegment{};
 
-					}if (prev.BasicType == 5 && prev.Token.IsBinaryOperator()) {
+					}if (prev.BasicType == EStatementBasicType::OPERATOR && prev.Token.IsBinaryOperator()) {
 						//correct
 					}
 					else {
@@ -553,7 +836,7 @@ namespace SylvanLanguage {
 					}
 				}
 				else if (statementList[list_idx].Token.IsBinaryOperator()) {
-					if (prev.BasicType < 5) {
+					if (prev.BasicType < EStatementBasicType::OPERATOR) {
 						//correct
 					}
 					else {
@@ -570,7 +853,7 @@ namespace SylvanLanguage {
 						mErrorMachine->AddError("Assignment operator is only allowed in the second location.", mTokens[statementList[list_idx].Idx].mColNumber, mTokens[statementList[list_idx].Idx].mColNumber);
 						return SStatementSegment{};
 					}
-					else if (!(prev.BasicType == 0 && (prev.VariableType == 1 || prev.VariableType == 2 || prev.VariableType == 4 || prev.VariableType == 5))) {
+					else if (!(prev.BasicType == EStatementBasicType::VARTYPE && (prev.VariableType == EStatementVarType::NORMAL_VAR || prev.VariableType == EStatementVarType::MEMBER_VAR ))) {
 						mErrorMachine->AddError("Assignment operator can only be used with variables, not with subexpressions and functions.", mTokens[statementList[list_idx].Idx].mColNumber, mTokens[statementList[list_idx].Idx].mColNumber);
 						return SStatementSegment{};
 					}
@@ -655,7 +938,7 @@ namespace SylvanLanguage {
 			return SingleStatementSegmentSolver(items[start]);
 		}
 
-		if (currentprop == 14 && items[start].BasicType == 5 && items[start].Token.IsUnaryOperator()) { //一元运算符
+		if (currentprop == 14 && items[start].BasicType == EStatementBasicType::OPERATOR && items[start].Token.IsUnaryOperator()) { //一元运算符
 			size_t next = start + 1;
 
 			SStatementSegment val = SingleStatementSegmentSolver(items[next]);
@@ -678,7 +961,7 @@ namespace SylvanLanguage {
 
 			int nearlestPropDelta = 999;
 			for (size_t i = start; i <= end; i++) {
-				if (items[i].BasicType == 5) {
+				if (items[i].BasicType == EStatementBasicType::OPERATOR) {
 					int propDelta = items[i].Token.GetOperatorProperity() - currentprop;
 					if (propDelta > 0) {
 						nearlestPropDelta = std::min(nearlestPropDelta, propDelta);
@@ -692,7 +975,7 @@ namespace SylvanLanguage {
 			}
 
 			for (size_t i = start; i <= end; i++) {
-				if (items[i].BasicType == 5) {
+				if (items[i].BasicType == EStatementBasicType::OPERATOR) {
 
 					if (items[i].Token.GetOperatorProperity() == currentprop) {
 						oplayer.push_back(items[i]);
@@ -745,11 +1028,11 @@ namespace SylvanLanguage {
 		if (!mErrorMachine->Success()) {
 			return SStatementSegment{};
 		}
-		if (item.BasicType == 0) {
-			if (item.VariableType == 1 || item.VariableType == 2 || item.VariableType == 4 || item.VariableType == 5) {
+		if (item.BasicType == EStatementBasicType::VARTYPE) {
+			if (item.VariableType == EStatementVarType::MEMBER_VAR || item.VariableType == EStatementVarType::NORMAL_VAR ) {
 				return VariableSolver(item);
 			}
-			else if (item.VariableType == 3 || item.VariableType == 6 || item.VariableType == 7) {
+			else if (item.VariableType == EStatementVarType::NORMAL_FUNC || item.VariableType == EStatementVarType::MEMBER_FUNC) {
 				return FunctionSolver(item);
 			}
 			else {
@@ -757,10 +1040,10 @@ namespace SylvanLanguage {
 				return SStatementSegment{};
 			}
 		}
-		else if (item.BasicType == 1 || item.BasicType == 2 || item.BasicType == 3) {
+		else if (item.BasicType == EStatementBasicType::CONST_INT || item.BasicType == EStatementBasicType::CONST_FLOAT || item.BasicType == EStatementBasicType::CONST_STRING) {
 			return ConstSolver(item);
 		}
-		else if (item.BasicType == 4) {
+		else if (item.BasicType == EStatementBasicType::SUBEXPR) {
 			return ExprSolver(item.Idx + 1, item.EndPos - 1, 1);
 		}
 		else {
@@ -773,9 +1056,9 @@ namespace SylvanLanguage {
 
 		std::vector<std::string> targetArgs{};
 		std::string retType{};
-		std::string inlineFuntionASM;
+		std::string inlineFunctionASM;
 
-		if (item.VariableType == 7) { // 普通函数
+		if (item.VariableType == EStatementVarType::NORMAL_FUNC) { // 普通函数
 			if (item.ModuleName != "") {
 				auto res = FindCustomFunction(item.ModuleName, item.MainName);
 				if (res.has_value()) {
@@ -790,11 +1073,11 @@ namespace SylvanLanguage {
 			else {
 				auto res = FindInlineFunction(item.MainName);
 				auto res2 = FindCustomFunction(item.ModuleName, item.MainName);
-
+				auto res3 = FindBindingFunction(item.MainName);
 				if (res.has_value()) {
 					retType = res.value().returnType;
 					targetArgs = res.value().arguments;
-					inlineFuntionASM = res.value().assemblyStr;
+					inlineFunctionASM = res.value().assemblyStr;
 				}
 				else {
 					if (res2.has_value()) {
@@ -802,54 +1085,48 @@ namespace SylvanLanguage {
 						targetArgs = res2.value().mFunctionArgsTypeDesc;
 					}
 					else {
-						mErrorMachine->AddError("Function: \"" + item.MainName + "\" is not defined", mTokens[item.Idx].mLineNumber, mTokens[item.Idx].mColNumber);
-						return SStatementSegment{};
+						if (res3.has_value()) {
+							retType = res3.value().returnType;
+							targetArgs = res3.value().arguments;
+						}
+						else {
+							mErrorMachine->AddError("Function: \"" + item.MainName + "\" is not defined", mTokens[item.Idx].mLineNumber, mTokens[item.Idx].mColNumber);
+							return SStatementSegment{};
+						}
 					}
 				}
 			}
 		}
 		else {
-			if (item.VariableType == 6) { // 成员函数
+			if (item.VariableType == EStatementVarType::MEMBER_FUNC) { // 成员函数
 
 				auto res = FindLocalVariable(item.MainName);
-				if (res.has_value()) {
-					auto res2 = FindMemberFunction(res.value().second.mTypeStr, item.MemberName);
+				auto resg = FindGlobalVariable(item.MainName);
+				
+				std::string varType = "";
+				if (res.has_value()) { varType = res.value().second.mTypeStr; }
+				else if (resg.has_value()) { varType = resg.value().mType; }
+
+				if (varType != "") {
+					auto res2 = FindMemberFunction(varType, item.MemberName);
 					if (res2.has_value()) {
 						retType = res2.value().returnType;
 						targetArgs = res2.value().arguments;
-						inlineFuntionASM = res2.value().assemblyStr;
+						inlineFunctionASM = res2.value().assemblyStr;
 					}
 					else {
-						mErrorMachine->AddError("Local Variable: \"" + item.MainName + " \",Type: \"" + res.value().second.mTypeStr + "\" doesn't have Member Function \"" + item.MemberName + "\" not defined", mTokens[item.Idx].mLineNumber, mTokens[item.Idx].mColNumber);
+						if(res.has_value()){
+							mErrorMachine->AddError("Local Variable: \"" + item.MainName + " \",Type: \"" + varType + "\" doesn't have Member Function \"" + item.MemberName + "\" not defined", mTokens[item.Idx].mLineNumber, mTokens[item.Idx].mColNumber);
+						}
+						else {
+							mErrorMachine->AddError("Global Variable: \"" + item.MainName + " \",Type: \"" + varType + "\" doesn't have Member Function \"" + item.MemberName + "\" not defined", mTokens[item.Idx].mLineNumber, mTokens[item.Idx].mColNumber);
+						}
 						return SStatementSegment{};
 					}
 				}
 				else {
-					mErrorMachine->AddError("Local variable \"" + item.MainName + "\" not defined", mTokens[item.Idx].mLineNumber, mTokens[item.Idx].mColNumber);
+					mErrorMachine->AddError("Variable \"" + item.MainName + "\" not defined", mTokens[item.Idx].mLineNumber, mTokens[item.Idx].mColNumber);
 					return SStatementSegment{};
-
-				}
-
-			}
-			else if (item.VariableType == 3) {
-
-				auto res = FindAttribute(item.ModuleName, item.MainName);
-				if (res.has_value()) {
-					auto res2 = FindMemberFunction(res.value().mType, item.MemberName);
-					if (res2.has_value()) {
-						retType = res2.value().returnType;
-						targetArgs = res2.value().arguments;
-						inlineFuntionASM = res2.value().assemblyStr;
-					}
-					else {
-						mErrorMachine->AddError("Attribute: \"" + item.MainName + " \",Type: \"" + res.value().mType + "\" doesn't have Member Function \"" + item.MemberName + "\" not defined", mTokens[item.Idx].mLineNumber, mTokens[item.Idx].mColNumber);
-						return SStatementSegment{};
-					}
-				}
-				else {
-					mErrorMachine->AddError("Attribute \"" + item.MainName + "\" not defined", mTokens[item.Idx].mLineNumber, mTokens[item.Idx].mColNumber);
-					return SStatementSegment{};
-
 				}
 			}
 		}
@@ -883,7 +1160,7 @@ namespace SylvanLanguage {
 		}
 
 		if (crueentArgs.size() != targetArgs.size()) {
-			if (item.VariableType == 3 || item.VariableType == 6) {
+			if (item.VariableType == EStatementVarType::MEMBER_FUNC) {
 				mErrorMachine->AddError("Member Function: \"" + item.MemberName + " \" in Type: \"" + item.VarTypeDesc + "\" need the same number of arguments (need " + std::to_string(targetArgs.size()) + " arguments, but now have " + std::to_string(crueentArgs.size()) + ").", mTokens[item.Idx].mLineNumber, mTokens[item.Idx].mColNumber);
 				return SStatementSegment{};
 			}
@@ -901,13 +1178,14 @@ namespace SylvanLanguage {
 				return SStatementSegment{};
 			}
 
+			//push
 			auto res = GetTypeCompatibleAsmForPush(temp.VarTypeDesc, targetArgs[i]);
 			if (res.has_value()) {
 				DescGenerator(temp);
-				printf("%s %s\n", res.value().c_str(), temp.VarNameDesc.c_str());
+				ASM_PUSH(res.value(), temp);			
 			}
 			else {
-				if (item.VariableType == 3 || item.VariableType == 6) {
+				if (item.VariableType == EStatementVarType::MEMBER_FUNC) {
 					mErrorMachine->AddError("Member Function: \"" + item.MemberName + " \" in Type: \"" + item.VarTypeDesc + "\" argument " + std::to_string(i) + "," + targetArgs[i] + ")is not match with \"" + temp.VarTypeDesc + "\"", mTokens[crueentArgs[i].first].mLineNumber, mTokens[crueentArgs[i].first].mColNumber);
 					return SStatementSegment{};
 				}
@@ -918,49 +1196,45 @@ namespace SylvanLanguage {
 			}
 		}
 
-		if (item.VariableType == 3)
-		{
-			if (item.ModuleName != "")
-			{
-				item.VarNameDesc = item.ModuleName + "::";
-			}
-			item.VarNameDesc += item.MainName;
-			if (inlineFuntionASM != "") {
-				inlineFuntionASM = "ATT_" + inlineFuntionASM;
-				printf("%s %s\n", inlineFuntionASM.c_str(), item.VarNameDesc.c_str());
-			}
+		if (item.VariableType == EStatementVarType::MEMBER_FUNC) {
+			if (inlineFunctionASM != "") {
+				ASM_CALL_MEMBER_FUNC(inlineFunctionASM, item);
+			}	
 		}
-		else if (item.VariableType == 6)
-		{
-			item.VarNameDesc += item.MainName;
-			if (inlineFuntionASM != "") {
-				inlineFuntionASM = "ATT_" + inlineFuntionASM;
-				printf("%s %s\n", inlineFuntionASM.c_str(), item.VarNameDesc.c_str());
+		else if (item.VariableType == EStatementVarType::NORMAL_FUNC) {
+
+			if (inlineFunctionASM != "") {
+				ASM_CALL_INLINE(inlineFunctionASM);
+				printf("%s\n\n", inlineFunctionASM.c_str());
 			}
-		}
-		else if (item.VariableType == 7)
-		{
-			if (item.ModuleName != "")
-			{
-				item.VarNameDesc = item.ModuleName + "::";
+			else {
+				item.VarNameDesc = item.ModuleName + "::" + item.MainName;
+				ASM_CALL(item.ModuleName, item.MainName);
+				printf("CALL %s\n\n", item.VarNameDesc.c_str());
 			}
-			item.VarNameDesc += item.MainName;
-			printf("CALL %s\n", item.VarNameDesc.c_str());
 		}
 
 		SStatementSegment vtemp;
-		vtemp.BasicType = 7;
+		vtemp.BasicType = EStatementBasicType::REG;
 		vtemp.RegisterID = GetFreeRegister();
 		vtemp.VarTypeDesc = retType;
 		DescGenerator(vtemp);
+
+		SStatementSegment RET;
+		RET.BasicType = EStatementBasicType::REG;
+		RET.RegisterID = 127;
+		RET.VarTypeDesc = retType;
+		DescGenerator(RET);
+		
 		if (retType != "void") {
 
 			auto movRes = GetTypeCompatibleAsmForAssignmentOperator(ETokenDesc::EQUAL, vtemp.VarTypeDesc, vtemp.VarTypeDesc);
 			if (movRes.has_value()) {
-				printf("%s %s, RET\n", movRes.value().c_str(), vtemp.VarNameDesc.c_str());
+				ASM_BINARY(movRes.value(), vtemp, RET);
+				//printf("%s %s, RET\n", movRes.value().c_str(), vtemp.VarNameDesc.c_str());
 			}
 			else {
-				mErrorMachine->AddError("Unkown funtion : " + item.VarNameDesc, mTokens[item.Idx].mLineNumber, mTokens[item.Idx].mColNumber);
+				mErrorMachine->AddError("Unkown Function : " + item.VarNameDesc, mTokens[item.Idx].mLineNumber, mTokens[item.Idx].mColNumber);
 				return SStatementSegment{};
 			}
 		}
@@ -968,53 +1242,31 @@ namespace SylvanLanguage {
 	}
 
 	SStatementSegment SourceCodeCompile::VariableSolver(SStatementSegment& item) {
+		
+		auto res = FindLocalVariable(item.MainName);
+		auto resg = FindGlobalVariable(item.MainName);
 
-		if (item.VariableType == 1 || item.VariableType == 2) {
-
-			auto res = FindAttribute(item.ModuleName, item.MainName);
-
-			if (res.has_value()) {
-				item.VarTypeDesc = res.value().mType;
-			}
-			else {
-				mErrorMachine->AddError("Attribute \"" + item.MainName + "\" not defined", mTokens[item.Idx].mLineNumber, mTokens[item.Idx].mColNumber);
-				return SStatementSegment{};
-			}
-
-			if (item.VariableType == 2) {
-
-				auto res2 = FindMemberVariable(res.value().mType, item.MemberName);
-				if (res2.has_value()) {
-					item.VarTypeDesc = res2.value().Type;
-				}
-				else {
-					mErrorMachine->AddError("Attribute: \"" + item.MainName + " \",Type: \"" + res.value().mType + "\" doesn't have Member Variable \"" + item.MemberName + "\" not defined", mTokens[item.Idx].mLineNumber, mTokens[item.Idx].mColNumber);
-					return SStatementSegment{};
-				}
-			}
+		std::string varType = "";
+		if (res.has_value()) { varType = res.value().second.mTypeStr; }
+		else if (resg.has_value()) { varType = resg.value().mType; }
+			
+		if (varType != "") {
+			item.VarTypeDesc = varType;
 		}
-		else if (item.VariableType == 4 || item.VariableType == 5) {
+		else {
+			mErrorMachine->AddError("Variable \"" + item.MainName + "\" not defined", mTokens[item.Idx].mLineNumber, mTokens[item.Idx].mColNumber);
+			return SStatementSegment{};
+		}
 
-			auto res = FindLocalVariable(item.MainName);
+		if (item.VariableType == EStatementVarType::MEMBER_VAR) {
 
-			if (res.has_value()) {
-				item.VarTypeDesc = res.value().second.mTypeStr;
+			auto res2 = FindMemberVariable(varType, item.MemberName);
+			if (res2.has_value()) {
+				item.VarTypeDesc = res2.value().Type;
 			}
 			else {
-				mErrorMachine->AddError("Local variable \"" + item.MainName + "\" not defined", mTokens[item.Idx].mLineNumber, mTokens[item.Idx].mColNumber);
+				mErrorMachine->AddError("Local variable: \"" + item.MainName + " \",Type: \"" + varType + "\" doesn't have Member Variable \"" + item.MemberName + "\" not defined", mTokens[item.Idx].mLineNumber, mTokens[item.Idx].mColNumber);
 				return SStatementSegment{};
-			}
-
-			if (item.VariableType == 2) {
-
-				auto res2 = FindMemberVariable(res.value().second.mTypeStr, item.MemberName);
-				if (res2.has_value()) {
-					item.VarTypeDesc = res2.value().Type;
-				}
-				else {
-					mErrorMachine->AddError("Local variable: \"" + item.MainName + " \",Type: \"" + res.value().second.mTypeStr + "\" doesn't have Member Variable \"" + item.MemberName + "\" not defined", mTokens[item.Idx].mLineNumber, mTokens[item.Idx].mColNumber);
-					return SStatementSegment{};
-				}
 			}
 		}
 
@@ -1024,11 +1276,11 @@ namespace SylvanLanguage {
 	inline SStatementSegment SourceCodeCompile::ConstSolver(SStatementSegment& item) {
 		DescGenerator(item);
 
-		if (item.BasicType == 1) {
+		if (item.BasicType == EStatementBasicType::CONST_INT) {
 			item.VarTypeDesc = "int";
-		}if (item.BasicType == 2) {
+		}if (item.BasicType == EStatementBasicType::CONST_FLOAT) {
 			item.VarTypeDesc = "float";
-		}if (item.BasicType == 3) {
+		}if (item.BasicType == EStatementBasicType::CONST_STRING) {
 			item.VarTypeDesc = "string";
 		}
 		return item;
@@ -1076,7 +1328,6 @@ namespace SylvanLanguage {
 
 	std::optional<std::string> SourceCodeCompile::GetTypeCompatibleAsmForUnaryOperator(ETokenDesc op, std::string A) {
 
-
 		auto itor = TypeRuler::TypeUnaryOperatorCompatible.find(op);
 		if (itor != TypeRuler::TypeUnaryOperatorCompatible.end()) {
 			auto& compatible = itor->second;
@@ -1089,14 +1340,14 @@ namespace SylvanLanguage {
 		return std::nullopt;
 	}
 
-	bool SourceCodeCompile::GetIdentifierSegment(size_t start_idx, size_t limited_end_idx, int& type, std::string& MName, std::string& VName, std::string& FName, size_t& argsBegin, size_t& argsEnd) {
+	bool SourceCodeCompile::GetIdentifierSegment(size_t start_idx, size_t limited_end_idx, EStatementVarType& type, std::string& moduleName, std::string& varName, std::string& memberName, size_t& argsBegin, size_t& argsEnd) {
 		size_t r_idx = start_idx;
 		size_t bracketMask = 0;
 
-		type = 0;
-		MName = "";
-		VName = "";
-		FName = "";
+		type = EStatementVarType::ERROR_VARTYPE;
+		moduleName = "";
+		varName = "";
+		memberName = "";
 		argsBegin = 0;
 		argsEnd = 0;
 
@@ -1113,108 +1364,91 @@ namespace SylvanLanguage {
 			}
 			else if (mTokens[temp_idx].mDesc == ETokenDesc::IDENTIFIER) {
 				if (mTokens[temp_idx + 1].mDesc == ETokenDesc::MODULEACCESS) {
-					MName += mTokens[temp_idx].GetValue<std::string>();
-					MName += "::";
+					moduleName += mTokens[temp_idx].GetValue<std::string>();
+					moduleName += "::";
 					hasModuleAccess = true;
 					temp_idx++;
 				}
 				else {
 					if (!hasModuleAccess) {
-						MName = "";
+						moduleName = "";
 					}
 					else {
-						MName.pop_back();
-						MName.pop_back();
+						moduleName.pop_back();
+						moduleName.pop_back();
 					}
 					break;
 				}
 			}
 			else {
 				if (!hasModuleAccess) {
-					MName = "";
+					moduleName = "";
 				}
 				else {
-					MName.pop_back();
-					MName.pop_back();
+					moduleName.pop_back();
+					moduleName.pop_back();
 				}
 				break;
 			}
 			temp_idx++;
 		}
 
-		bool isAttribute = false;
-		if (mTokens[temp_idx].mDesc == ETokenDesc::ATTRIBUTE) {
-			temp_idx++;
-			if (mTokens[temp_idx].mDesc == ETokenDesc::IDENTIFIER) {
-				isAttribute = true;
-				VName = "@" + mTokens[temp_idx].GetValue<std::string>();
-			}
-			else {
-				mErrorMachine->AddError("Missing attribute name after \"@\".", mTokens[temp_idx].mLineNumber, mTokens[temp_idx].mColNumber);
-				return false;
-			}
+		if (mTokens[temp_idx].mDesc == ETokenDesc::IDENTIFIER) {
+
+			varName = mTokens[temp_idx].GetValue<std::string>();
 		}
 		else {
-			if (mTokens[temp_idx].mDesc == ETokenDesc::IDENTIFIER) {
-
-				VName = mTokens[temp_idx].GetValue<std::string>();
+			if (hasModuleAccess) {
+				mErrorMachine->AddError("Missing identifier after \"::\".", mTokens[temp_idx].mLineNumber, mTokens[temp_idx].mColNumber);
 			}
 			else {
-				if (hasModuleAccess) {
-					mErrorMachine->AddError("Missing identifier after \"::\".", mTokens[temp_idx].mLineNumber, mTokens[temp_idx].mColNumber);
-				}
-				else {
-					mErrorMachine->AddError("Unknown opeartion in statement.", mTokens[temp_idx].mLineNumber, mTokens[temp_idx].mColNumber);
-				}
-				return false;
+				mErrorMachine->AddError("Unknown opeartion in statement.", mTokens[temp_idx].mLineNumber, mTokens[temp_idx].mColNumber);
 			}
+			return false;
 		}
+
 
 		temp_idx++;
 
 		//是否是函数
-		if (!isAttribute) {
-			if (mTokens[temp_idx].mDesc == ETokenDesc::BRACKET_ROUND_START) {
+		if (mTokens[temp_idx].mDesc == ETokenDesc::BRACKET_ROUND_START) {
 
-				argsBegin = temp_idx;
-				bracketMask++;
-				temp_idx++;
-				while (temp_idx <= limited_end_idx) {
-					if (mTokens[temp_idx].mDesc == ETokenDesc::BRACKET_ROUND_START) {
-						bracketMask++;
-					}
-					else if (mTokens[temp_idx].mDesc == ETokenDesc::BRACKET_ROUND_END) {
-						bracketMask--;
-						if (bracketMask == 0) {
+			argsBegin = temp_idx;
+			bracketMask++;
+			temp_idx++;
+			while (temp_idx <= limited_end_idx) {
+				if (mTokens[temp_idx].mDesc == ETokenDesc::BRACKET_ROUND_START) {
+					bracketMask++;
+				}
+				else if (mTokens[temp_idx].mDesc == ETokenDesc::BRACKET_ROUND_END) {
+					bracketMask--;
+					if (bracketMask == 0) {
 
-							if (mTokens[temp_idx + 1].mDesc == ETokenDesc::MEMBERACCESS) {
-								mErrorMachine->AddError("Member Access can't used for function.", mTokens[temp_idx + 1].mLineNumber, mTokens[temp_idx + 1].mColNumber);
-								return false;
-							}
-							else {
-								type = 7;
-								argsEnd = temp_idx;
-								return true;
-							}
+						if (mTokens[temp_idx + 1].mDesc == ETokenDesc::MEMBERACCESS) {
+							mErrorMachine->AddError("Member Access can't used for function.", mTokens[temp_idx + 1].mLineNumber, mTokens[temp_idx + 1].mColNumber);
+							return false;
+						}
+						else {
+							type = EStatementVarType::NORMAL_FUNC;
+							argsEnd = temp_idx;
+							return true;
 						}
 					}
-					temp_idx++;
 				}
+				temp_idx++;
 			}
 		}
 
+		if (hasModuleAccess) {
+			mErrorMachine->AddError("Access to variables of other modules is not allowed.", mTokens[temp_idx].mLineNumber, mTokens[temp_idx].mColNumber);
+			return false;
+		}
+		
 		if (mTokens[temp_idx].mDesc == ETokenDesc::MEMBERACCESS) {
 			temp_idx++;
 			if (mTokens[temp_idx].mDesc == ETokenDesc::IDENTIFIER) {
 
-				if (!isAttribute && hasModuleAccess) {
-					type = 0;
-					argsEnd = temp_idx;
-					mErrorMachine->AddError("Access to normal variables of other modules is not allowed.", mTokens[temp_idx].mLineNumber, mTokens[temp_idx].mColNumber);
-					return false;
-				}
-
-				FName = mTokens[temp_idx].GetValue<std::string>();
+				memberName = mTokens[temp_idx].GetValue<std::string>();
 				if (mTokens[temp_idx + 1].mDesc == ETokenDesc::BRACKET_ROUND_START) {
 					temp_idx++;
 					argsBegin = temp_idx;
@@ -1233,12 +1467,7 @@ namespace SylvanLanguage {
 									return false;
 								}
 								else {
-									if (isAttribute) {
-										type = 3;
-									}
-									else {
-										type = 6;
-									}
+									type = EStatementVarType::MEMBER_FUNC;
 									argsEnd = temp_idx;
 									return true;
 								}
@@ -1248,50 +1477,17 @@ namespace SylvanLanguage {
 					}
 				}
 				else {
-					if (isAttribute) {
-						type = 2;
-						argsEnd = temp_idx;
-						return true;
-					}
-					else {
-						if (!hasModuleAccess) {
-
-							type = 5;
-							argsEnd = temp_idx;
-							return true;
-						}
-						else {
-							type = 0;
-							argsEnd = temp_idx;
-							mErrorMachine->AddError("Access to normal variables of other modules is not allowed.", mTokens[temp_idx].mLineNumber, mTokens[temp_idx].mColNumber);
-							return false;
-						}
-					}
+					type = EStatementVarType::MEMBER_VAR;
+					argsEnd = temp_idx;
+					return true;
 				}
 			}
 		}
 		else {
 			//这个时候指针指向了 ; 或者其他符号
-			if (isAttribute) {
-				type = 1;
-				argsEnd = temp_idx - 1;
-				return true;
-			}
-			else {
-				if (!hasModuleAccess) {
-
-					type = 4;
-					argsEnd = temp_idx - 1;
-					return true;
-				}
-				else {
-					type = 0;
-					argsEnd = temp_idx - 1;
-					mErrorMachine->AddError("Access to normal variables of other modules is not allowed.", mTokens[temp_idx].mLineNumber, mTokens[temp_idx].mColNumber);
-					return false;
-				}
-
-			}
+			type = EStatementVarType::NORMAL_VAR;
+			argsEnd = temp_idx - 1;
+			return true;
 		}
 
 		return false;
@@ -1299,46 +1495,48 @@ namespace SylvanLanguage {
 
 	SStatementSegment SourceCodeCompile::DescGenerator(SStatementSegment& item) {
 
-		if (item.BasicType == 1) {
+		if (item.BasicType == EStatementBasicType::CONST_INT) {
 			item.VarNameDesc = std::to_string(item.Token.GetValue<RuleTable::SlgINT>());
 		}
-		else if (item.BasicType == 2) {
+		else if (item.BasicType == EStatementBasicType::CONST_FLOAT) {
 			item.VarNameDesc = std::to_string(item.Token.GetValue<RuleTable::SlgFLOAT>());
 		}
-		else if (item.BasicType == 4) {
+		else if (item.BasicType == EStatementBasicType::CONST_STRING) {
 			item.VarNameDesc = item.Token.GetValue<std::string>();
 		}
-		else if (item.BasicType == 0) {
-			if (item.VariableType == 1) {
+		else if (item.BasicType == EStatementBasicType::VARTYPE) {
+			if (item.VariableType == EStatementVarType::NORMAL_FUNC) {
 				if (item.ModuleName != "")
 				{
 					item.VarNameDesc = item.ModuleName + "::";
 				}
 				item.VarNameDesc += item.MainName;
 			}
-			else if (item.VariableType == 2) {
-				if (item.ModuleName != "")
-				{
-					item.VarNameDesc = item.ModuleName + "::";
-				}
+			else if (item.VariableType == EStatementVarType::MEMBER_FUNC) {
 				item.VarNameDesc += item.MainName + "." + item.MemberName;
 			}
-			else if (item.VariableType == 4) {
+			else if (item.VariableType == EStatementVarType::MEMBER_VAR) {
+				item.VarNameDesc = item.MainName + "." + item.MemberName;
+				
+			}
+			else if (item.VariableType == EStatementVarType::NORMAL_VAR) {
 				item.VarNameDesc = item.MainName;
 			}
-			else if (item.VariableType == 5) {
-				item.VarNameDesc = item.MainName + "." + item.MemberName;
-			}
 		}
-		else if (item.BasicType == 7) {
+		else if (item.BasicType == EStatementBasicType::REG) {
 			item.VarNameDesc = "R" + std::to_string(item.RegisterID);
 		}
 		return item;
 	}
 
-	std::optional<CompilerConfig::SInlineFunctionDesc> SourceCodeCompile::FindMemberFunction(const std::string& variableType, const std::string& memberFuntionName) {
+	std::optional<CompilerConfig::SBindingFunctionDesc> SourceCodeCompile::FindBindingFunction(const std::string& memberFunctionName) {
 
-		return mCompilerConfig->FindMemberFunction(variableType, memberFuntionName);
+		return mCompilerConfig->FindBindingFunction(memberFunctionName);
+	}
+
+	std::optional<CompilerConfig::SInlineFunctionDesc> SourceCodeCompile::FindMemberFunction(const std::string& variableType, const std::string& memberFunctionName) {
+
+		return mCompilerConfig->FindMemberFunction(variableType, memberFunctionName);
 	}
 
 	std::optional<CompilerConfig::SMemberVaribleDesc> SourceCodeCompile::FindMemberVariable(const std::string& variableType, const std::string& memberName) {
@@ -1363,41 +1561,27 @@ namespace SylvanLanguage {
 		return std::nullopt;
 	}
 
-	std::optional<SModuleAttributeDesc> SourceCodeCompile::FindAttribute(const std::string& ModuleName, const std::string& varName) {
-		if (ModuleName == "") {
-			auto itor = mModuleInfo->mRunTimeAttributeTable.find(varName);
-			if (itor != mModuleInfo->mRunTimeAttributeTable.end()) {
-				return itor->second;
-			}
-			else {
-				for (auto& i : mModuleInfo->mDependenceModules) {
-					auto it = mNetWork->FindAttribute(i, varName);
-					if (it.has_value()) {
-						return it.value();
-					}
-				}
-			}
+	std::optional<SModuleGlobalVariableDesc> SourceCodeCompile::FindGlobalVariable(const std::string& varName) {
+
+		auto itor = mModuleInfo->mGlobalVariableTable.find(varName);
+		if (itor != mModuleInfo->mGlobalVariableTable.end()) {
+			return itor->second;
 		}
-		else {
-			auto it = mNetWork->FindAttribute(ModuleName, varName);
-			if (it.has_value()) {
-				return it.value();
-			}
-		}
+
 		return std::nullopt;
 	}
 
-	std::optional<SModuleFuntionDesc> SourceCodeCompile::FindCustomFunction(const std::string& ModuleName, const std::string& varName) {
+	std::optional<SModuleFunctionDesc> SourceCodeCompile::FindCustomFunction(const std::string& ModuleName, const std::string& varName) {
 
-		if (ModuleName == "") {
+		if (ModuleName == "" || ModuleName == mModuleInfo->mCurrentModuleName) {
 
-			auto itor = mModuleInfo->mRunTimeFuntionTable.find(varName);
-			if (itor != mModuleInfo->mRunTimeFuntionTable.end()) {
+			auto itor = mModuleInfo->mFunctionTable.find(varName);
+			if (itor != mModuleInfo->mFunctionTable.end()) {
 				return itor->second;
 			}
 			else {
 				for (auto& i : mModuleInfo->mDependenceModules) {
-					auto it = mNetWork->FindFuntion(i, varName);
+					auto it = mNetWork->FindFunction(i, varName);
 					if (it.has_value()) {
 						return it.value();
 					}
@@ -1406,7 +1590,7 @@ namespace SylvanLanguage {
 		}
 		else {
 
-			auto it = mNetWork->FindFuntion(ModuleName, varName);
+			auto it = mNetWork->FindFunction(ModuleName, varName);
 			if (it.has_value()) {
 				return it.value();
 			}
@@ -1420,31 +1604,35 @@ namespace SylvanLanguage {
 		}
 		SStatementSegment reg{};
 
-		if (A.BasicType == 1) {
+		if (A.BasicType == EStatementBasicType::CONST_INT) {
 			reg = A;
 			reg.Token.mValue = IntConstexprCalcValueUnary(op.Token.mDesc, A.Token.GetValue<RuleTable::SlgINT>());
-			reg.BasicType = 1;
+			reg.BasicType = EStatementBasicType::CONST_INT;
 			reg.VarTypeDesc = "int";
 			DescGenerator(reg);
 			return reg;
 		}
-		else if (A.BasicType == 2) {
+		else if (A.BasicType == EStatementBasicType::CONST_FLOAT) {
 
 			reg = A;
 			reg.Token.mValue = FloatConstexprCalcValueUnary(op.Token.mDesc, A.Token.GetValue<RuleTable::SlgFLOAT>());
-			reg.BasicType = 2;
+			reg.BasicType = EStatementBasicType::CONST_FLOAT;
 			reg.VarTypeDesc = "float";
 			DescGenerator(reg);
 			return reg;
 		}
-		else if (A.BasicType != 7) {
-			reg.BasicType = 7;
+		else if (A.BasicType == EStatementBasicType::CONST_STRING) {
+			mErrorMachine->AddError("Strings cannot use unit operators, only 'addition'+' is allowed ", op.Token.mColNumber, op.Token.mColNumber);
+			return SStatementSegment{};
+		}
+		else if (A.BasicType != EStatementBasicType::REG) {
+			reg.BasicType = EStatementBasicType::REG;
 			reg.VarTypeDesc = A.VarTypeDesc;
 			reg.RegisterID = GetFreeRegister();
 			DescGenerator(reg);
 			auto movRes = GetTypeCompatibleAsmForAssignmentOperator(ETokenDesc::EQUAL, reg.VarTypeDesc, reg.VarTypeDesc);
 			if (movRes.has_value()) {
-				printf("%s %s, %s\n", movRes.value().c_str(), reg.VarNameDesc.c_str(), A.VarNameDesc.c_str());
+				ASM_BINARY(movRes.value(), reg, A);
 			}
 			else {
 				mErrorMachine->AddError("Error type : " + reg.VarTypeDesc, op.Token.mColNumber, op.Token.mColNumber);
@@ -1458,13 +1646,55 @@ namespace SylvanLanguage {
 
 		auto result = GetTypeCompatibleAsmForUnaryOperator(op.Token.mDesc, reg.VarTypeDesc);
 		if (result.has_value()) {
-			printf("%s %s\n", result.value().c_str(), reg.VarNameDesc.c_str());
+			ASM_UNARY(result.value(), reg);
 			return reg;
 		}
 		else {
 			mErrorMachine->AddError("Operator " + op.Token.GetValue<std::string>() + " can't used for type " + reg.VarTypeDesc, mTokens[op.Idx].mColNumber, mTokens[op.Idx].mColNumber);
 			return SStatementSegment{};
 		}
+	}
+
+	std::tuple<std::string, std::string, size_t, unsigned short, short, int, long long, double, std::string> SourceCodeCompile::GetVarAsmType(SStatementSegment& item) {
+		if (item.BasicType == EStatementBasicType::REG) {
+			return {"", "", 0, 0, item.RegisterID, 0, 0, 0.0, ""};
+		}
+		else if (item.BasicType == EStatementBasicType::VARTYPE) {
+			auto resL = FindLocalVariable(item.MainName);
+			auto resG = FindGlobalVariable(item.MainName);
+		
+			std::string vType = "";
+			std::string mModule = "";
+			size_t offest = 0;
+			size_t memOffest = 0;
+
+			if(resL.has_value()){ 
+				vType = resL.value().second.mTypeStr;
+				offest = resL.value().second.mVariableOffest;
+			}
+			else if (resG.has_value()) {
+				vType = resG.value().mType;
+				mModule = mModuleInfo->mCurrentModuleName;
+			}
+
+			if (item.VariableType == EStatementVarType::MEMBER_VAR) {
+				auto res = FindMemberVariable(vType, item.MemberName);
+				memOffest = res.value().AddressOffest;	
+			}
+
+			return { item.MainName, mModule, offest, memOffest, -1, 0, 0, 0.0, "" };
+		}
+		else if (item.BasicType == EStatementBasicType::CONST_INT) {
+			return { "", "", 0, 0, -1, 1, item.Token.GetValue<long long>(), 0.0, ""};
+		}
+		else if (item.BasicType == EStatementBasicType::CONST_FLOAT) {
+			return { "", "", 0, 0, -1, 2, 0, item.Token.GetValue<double>(), "" };
+		}
+		else if (item.BasicType == EStatementBasicType::CONST_STRING) {
+			return { "", "", 0, 0, -1, 3, 0, 0.0, item.Token.GetValue<std::string>() };
+		}
+		printf("Error: Can't Pass The Variable : %s============\n", item.MainName.c_str());
+		return { "", "", 0, 0, -1, 0, 0, 0.0, "" };
 	}
 
 	SStatementSegment SourceCodeCompile::SovlerAsmBinaryOperator(SStatementSegment& op, SStatementSegment& A, SStatementSegment& B) {
@@ -1474,34 +1704,48 @@ namespace SylvanLanguage {
 		}
 		SStatementSegment reg{};
 
-		if (A.BasicType == 1 && B.BasicType == 1) {
+		if (A.BasicType == EStatementBasicType::CONST_INT && B.BasicType == EStatementBasicType::CONST_INT) {
 			reg = A;
 			reg.Token.mValue = IntConstexprCalcValueBinary(op.Token.mDesc, A.Token.GetValue<RuleTable::SlgINT>(), B.Token.GetValue<RuleTable::SlgINT>());
-			reg.BasicType = 1;
+			reg.BasicType = EStatementBasicType::CONST_INT;
 			reg.VarTypeDesc = "int";
 			DescGenerator(reg);
 			return reg;
 		}
-		else if (A.BasicType == 2 && B.BasicType == 2 || A.BasicType == 2 && B.BasicType == 1 || A.BasicType == 1 && B.BasicType == 2) {
+		else if (A.BasicType == EStatementBasicType::CONST_FLOAT && B.BasicType == EStatementBasicType::CONST_FLOAT || 
+			A.BasicType == EStatementBasicType::CONST_FLOAT && B.BasicType == EStatementBasicType::CONST_INT || 
+			A.BasicType == EStatementBasicType::CONST_INT && B.BasicType == EStatementBasicType::CONST_FLOAT) {
+			
 			reg = A;
 			reg.Token.mValue = FloatConstexprCalcValueBinary(op.Token.mDesc, A.Token.GetValue<RuleTable::SlgFLOAT>(), B.Token.GetValue<RuleTable::SlgFLOAT>());
-			reg.BasicType = 2;
+			reg.BasicType = EStatementBasicType::CONST_FLOAT;
 			reg.VarTypeDesc = "float";
 			DescGenerator(reg);
 			return reg;
 		}
-		else if (A.BasicType != 7) {
-			reg.BasicType = 7;
+		else if (A.BasicType == EStatementBasicType::CONST_STRING) {
+			
+ 
+			reg = A;
+			//TODO :
+	
+			reg.BasicType = EStatementBasicType::CONST_STRING;
+			reg.VarTypeDesc = "string";
+			DescGenerator(reg);
+			return reg;
+		}
+		else if (A.BasicType != EStatementBasicType::REG) {
+			reg.BasicType = EStatementBasicType::REG;
 			reg.VarTypeDesc = A.VarTypeDesc;
 			reg.RegisterID = GetFreeRegister();
 			DescGenerator(reg);
 
 			auto movRes = GetTypeCompatibleAsmForAssignmentOperator(ETokenDesc::EQUAL, reg.VarTypeDesc, reg.VarTypeDesc);
+
 			if (movRes.has_value()) {
-				printf("%s %s, %s\n", movRes.value().c_str(), reg.VarNameDesc.c_str(), A.VarNameDesc.c_str());
+				ASM_BINARY(movRes.value(), reg, A);
 			}
 			else {
-				std::cout << "Error:" << reg.VarNameDesc << B.VarNameDesc << "\n";
 				mErrorMachine->AddError("Error type : " + reg.VarTypeDesc, op.Token.mColNumber, op.Token.mColNumber);
 				return SStatementSegment{};
 			}
@@ -1515,7 +1759,7 @@ namespace SylvanLanguage {
 
 		if (result.has_value()) {
 			reg.VarTypeDesc = result.value().first.c_str();
-			printf("%s %s, %s\n", result.value().second.c_str(), reg.VarNameDesc.c_str(), B.VarNameDesc.c_str());
+			ASM_BINARY(result.value().second, reg, B);
 			return reg;
 		}
 		else {
@@ -1528,9 +1772,9 @@ namespace SylvanLanguage {
 			return SStatementSegment{};
 		}
 		auto result = GetTypeCompatibleAsmForAssignmentOperator(op.Token.mDesc, A.VarTypeDesc, B.VarTypeDesc);
-
+		
 		if (result.has_value()) {
-			printf("%s %s, %s\n", result.value().c_str(), A.VarNameDesc.c_str(), B.VarNameDesc.c_str());
+			ASM_BINARY(result.value(), A, B);
 			return A;
 		}
 		else {
@@ -1538,6 +1782,75 @@ namespace SylvanLanguage {
 			return SStatementSegment{};
 		}
 	}
+
+	bool SourceCodeCompile::ASM_UNARY(const std::string& asmStr, SStatementSegment& A) {
+		auto [name, moduleName, address, offest, regidx, constType, LL, DD, SS] = GetVarAsmType(A);
+		bool t = mAsmGen->UNARY_OPERATE(asmStr, name, moduleName, address, offest, regidx, constType, LL, DD, SS);
+
+		printf("%s %s\n\n", asmStr.c_str(), A.VarNameDesc.c_str());
+		return t;
+	}
+
+	bool SourceCodeCompile::ASM_BINARY(const std::string& asmStr, SStatementSegment& A, SStatementSegment& B) {
+		auto [name, moduleName, address, offest, regidx, constType, LL, DD, SS] = GetVarAsmType(A);
+		auto [nameB, moduleNameB, addressB, offestB, regidxB, constTypeB, LLB, DDB, SSB] = GetVarAsmType(B);
+
+		bool t = mAsmGen->BIN_OPERATE(asmStr, name, nameB,
+			moduleName, moduleNameB,
+			address, addressB,
+			offest, offestB,
+			regidx, regidxB,
+			constType, constTypeB,
+			LL, LLB,
+			DD, DDB,
+			SS, SSB);
+		
+		printf("%s %s, %s\n\n", asmStr.c_str(), A.VarNameDesc.c_str(), B.VarNameDesc.c_str());
+
+		return t;
+	}
+
+	bool SourceCodeCompile::ASM_PUSH(const std::string& asmStr, SStatementSegment& A) {
+		return ASM_UNARY(asmStr, A);
+	}
+
+	bool SourceCodeCompile::ASM_CALL(const std::string& moduleName, const std::string& FunctionName) {
+		return mAsmGen->CALL(moduleName, FunctionName);
+	}
+	bool SourceCodeCompile::ASM_CALL_INLINE(const std::string& FunctionName) {
+		
+		return mAsmGen->CALL_INLINE(FunctionName);
+	}
+
+	bool SourceCodeCompile::ASM_CALL_MEMBER_FUNC(const std::string& FunctionName, SStatementSegment& A) {
+		auto it = FindGlobalVariable(A.MainName);
+		auto it2 = FindLocalVariable(A.MainName);
+		std::string modulename = "";
+		std::string globalName = "";
+		size_t offest = 0;
+		if (it.has_value()) {
+			globalName = A.MainName;
+			modulename = mModuleInfo->mCurrentModuleName;
+			
+		}
+		else if (it2.has_value()) {
+			offest = it2.value().second.mVariableOffest;
+		}
+		else {
+			return false;
+		}
+
+		bool t=  mAsmGen->CALL_MEMBER_FUNC(FunctionName, modulename, globalName, offest);
+		std::string temp = "";
+		if (A.ModuleName != "") {
+			temp += A.ModuleName + "::";
+		}
+		temp += A.MainName;
+		printf("CALL %s\n\n", temp.c_str());
+		return t;
+
+	}
+	
 	RuleTable::SlgINT SourceCodeCompile::IntConstexprCalcValueUnary(ETokenDesc desc, RuleTable::SlgINT value) {
 		switch (desc) {
 		case ETokenDesc::NOT:
@@ -1676,10 +1989,6 @@ namespace SylvanLanguage {
 		case ETokenType::BRACKET:
 		case ETokenType::OPERATOR:
 		case ETokenType::STATEMENTOPERATOR:
-			if (mCurrentToken.mDesc == ETokenDesc::ATTRIBUTE)
-			{
-				mCurrentToken.mType = ETokenType::IDENTIFIER;
-			}
 			mTokens.emplace_back(mCurrentToken);
 			break;
 		}

@@ -16,3 +16,5 @@
 #include <optional>
 #include "tbb/tbb.h"
 
+#undef max
+#undef min

@@ -5,7 +5,7 @@
 
 int main() {
 
-	std::ifstream file("D:/hello.txt");
+	std::ifstream file("../../../hello.txt");
 
 	if (file.is_open()) {
 		std::string codes = "";
@@ -22,7 +22,8 @@ int main() {
 		env.CreateNetWork("Hello");
 		env.AddModuleSourceCode("Hello", codes);
 
-		return  0;
-	}
-}
 
+	}
+
+	return 0;
+}

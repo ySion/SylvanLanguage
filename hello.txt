@@ -1,0 +1,31 @@
+﻿/*
+	This is a Test Program for new language SylvanScript;
+	Author: Lee In 2022.
+*/
+
+using "IO::output";   // import module: IO
+
+module "IO::hello" {
+
+	int ai = 122 * 5 * (99 + 15);
+	float af= 122 * 4 * (15 + 15) + ai;
+	string as;
+	vector2 av2;
+	vector3 av3;
+	matrix4x4 av4;
+
+
+	
+	int SetZeroA(int A, vector3 B, int C){
+		A = 5;
+		C += sin(6) - B.y - ai - av4.getone(1,1);
+		B.y = sin(6) + B.z + A;
+		af += sin(6) - (5 + 5) - ai - av4.getone(1,1) + !av4.getone(av4.getone(1,1), 5.0) + 77 + !ai;
+
+	}
+
+	void SetZero(int A) export {
+		A = 5;	
+		ai = (!55.0 + 5);
+	}
+}
