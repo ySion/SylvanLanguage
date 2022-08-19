@@ -2,7 +2,7 @@
 
 #include "pch.hpp"
 namespace SylvanLanguage {
-	
+
 	class SourceCodeCompile;
 
 	enum class ETokenType {
@@ -90,8 +90,6 @@ namespace SylvanLanguage {
 		KEYWORLD_if,
 		KEYWORLD_else,
 		KEYWORLD_return,
-		KEYWORLD_switch,
-		KEYWORLD_case,
 		KEYWORLD_break,
 		KEYWORLD_for,
 		KEYWORLD_continue,
@@ -163,8 +161,6 @@ namespace SylvanLanguage {
 		case ETokenDesc::KEYWORLD_break:		return "KEYWORLD_break            ";
 		case ETokenDesc::KEYWORLD_continue:		return "KEYWORLD_continue         ";
 		case ETokenDesc::KEYWORLD_return:		return "KEYWORLD_return           ";
-		case ETokenDesc::KEYWORLD_switch:		return "KEYWORLD_switch           ";
-		case ETokenDesc::KEYWORLD_case:			return "KEYWORLD_case             ";
 
 		default:
 			return "";
@@ -208,9 +204,9 @@ namespace SylvanLanguage {
 		MODULE_DEP = 0x8001,
 		MODULE_SELF,
 		GLOBAL_VAR_MALLOC,
-		
+
 		CALL,
-		
+
 		M_MATRIAX_SET2,
 		M_MATRIAX_SET3,
 		M_MATRIAX_SET4,
@@ -1149,24 +1145,24 @@ namespace SylvanLanguage {
 
 		inline std::optional<ESlgd87Asm> FindAsm(const std::string& asmStr) {
 			auto itor = StrMapAsm.find(asmStr);
-			if(itor == StrMapAsm.end()) {
+			if (itor == StrMapAsm.end()) {
 				return std::nullopt;
 			}
 			else {
 				return itor->second;
 			}
 		}
-		
+
 	private:
 		unsigned short AsmIdx = 0x8000;
 
 	};
 
-	
+
 	class D87AssemblyWriter {
 	public:
 		AssemblyData* data;
-		CompilerConfig * mConfig;
+		CompilerConfig* mConfig;
 
 		inline D87AssemblyWriter(AssemblyData* AsmData, CompilerConfig* cfg) : data(AsmData), mConfig(cfg) {}
 
@@ -1176,16 +1172,16 @@ namespace SylvanLanguage {
 		}
 
 		//二元运算符 和 赋值
-		
-		inline bool BIN_OPERATE(const std::string& ASM, const std::string& A, const std::string& B, 
-								const std::string& AModulePath, const std::string& BModulePath, 
-								size_t offestA, size_t offestB,
-								unsigned short memberOffestA, unsigned short memberOffestB,
-								short regA, short regB,
-								int constTypeA, int constTypeB,
-								long long conLLA, long long conLLB,
-								double conDA, double conDB, 
-								std::string conSA, std::string conSB) {
+
+		inline bool BIN_OPERATE(const std::string& ASM, const std::string& A, const std::string& B,
+			const std::string& AModulePath, const std::string& BModulePath,
+			int offestA, int offestB,
+			unsigned short memberOffestA, unsigned short memberOffestB,
+			short regA, short regB,
+			int constTypeA, int constTypeB,
+			long long conLLA, long long conLLB,
+			double conDA, double conDB,
+			std::string conSA, std::string conSB) {
 			auto it = FindAsm(ASM);
 			if (it.has_value()) {
 				data->AddValue<unsigned short>((unsigned short)it.value());
@@ -1193,7 +1189,7 @@ namespace SylvanLanguage {
 				if (regA != -1) {
 					data->AddValue<unsigned char>((unsigned char)0x02);
 					data->AddValue<unsigned char>(regA);
-					
+
 					std::cout << "0x02" << " ";
 					if (regA == 127) {
 						std::cout << regA << "(RET), ";
@@ -1206,7 +1202,7 @@ namespace SylvanLanguage {
 					data->AddValue<unsigned char>((unsigned char)0x01);
 					data->AddString(AModulePath);
 					data->AddString(A);
-					
+
 					std::cout << "0x01" << " ";
 					std::cout << AModulePath << " ";
 					std::cout << A << " ";
@@ -1231,16 +1227,16 @@ namespace SylvanLanguage {
 				}
 				else {
 					data->AddValue<unsigned char>((unsigned char)0x00);
-					data->AddValue<size_t>(offestA + memberOffestA);
+					data->AddValue<int>(offestA + memberOffestA);
 					data->AddValue<unsigned short>(memberOffestA);
-					
+
 					std::cout << "0x00 ";
 					std::cout << offestA << "+";
 					std::cout << memberOffestA << "=";
 					std::cout << offestA + memberOffestA << ", ";
 				}
 
-				
+
 				//B
 				if (regB != -1) {
 					data->AddValue<unsigned char>((unsigned char)0x02);
@@ -1285,7 +1281,7 @@ namespace SylvanLanguage {
 				}
 				else {
 					data->AddValue<unsigned char>((unsigned char)0x00);
-					data->AddValue<size_t>(offestB + memberOffestB);
+					data->AddValue<int>(offestB + memberOffestB);
 
 					std::cout << "0x00 ";
 					std::cout << offestB << "+";
@@ -1297,10 +1293,10 @@ namespace SylvanLanguage {
 			}
 			return false;
 		}
-		
+
 
 		//一元运算符
-		inline bool UNARY_OPERATE(const std::string& ASM, const std::string& A, const std::string& AModulePath, size_t offestA, unsigned short memberOffestA, short regA, int constType, long long conLL, double conD, std::string conS) {
+		inline bool UNARY_OPERATE(const std::string& ASM, const std::string& A, const std::string& AModulePath, int offestA, unsigned short memberOffestA, short regA, int constType, long long conLL, double conD, std::string conS) {
 			auto it = FindAsm(ASM);
 			if (it.has_value()) {
 				data->AddValue<unsigned short>((unsigned short)it.value());
@@ -1315,7 +1311,8 @@ namespace SylvanLanguage {
 					else {
 						std::cout << regA << "\n";
 					}
-				}else if (AModulePath != "") {
+				}
+				else if (AModulePath != "") {
 					data->AddValue<unsigned char>((unsigned char)0x01);
 					data->AddString(AModulePath);
 					data->AddString(A);
@@ -1326,14 +1323,15 @@ namespace SylvanLanguage {
 					std::cout << memberOffestA << "\n";
 				}
 				else if (constType != 0) {
-					
+
 					data->AddValue<unsigned char>((unsigned char)0x04);
 					std::cout << "0x04 ";
 					if (constType == 1) {
 						data->AddValue<long long>(conLL);
 						printf("%lld\n", conLL);
-						
-					}else if (constType == 2) {
+
+					}
+					else if (constType == 2) {
 						data->AddValue<double>(conD);
 						printf("%llf\n", conD);
 					}
@@ -1344,14 +1342,14 @@ namespace SylvanLanguage {
 				}
 				else {
 					data->AddValue<unsigned char>((unsigned char)0x00);
-					data->AddValue<size_t>(offestA + memberOffestA);
+					data->AddValue<int>(offestA + memberOffestA);
 
 					std::cout << "0x00 ";
 					std::cout << offestA << "+";
 					std::cout << memberOffestA << "=";
-					std::cout << offestA + memberOffestA << "\n";		
+					std::cout << offestA + memberOffestA << "\n";
 				}
-	
+
 				return true;
 			}
 			return false;
@@ -1371,11 +1369,11 @@ namespace SylvanLanguage {
 			auto it = FindAsm("CALL");
 			if (it.has_value()) {
 				std::cout << "CALL ";
-				
+
 				data->AddValue<unsigned short>((unsigned short)it.value());
 				data->AddString(moduleName);
 				data->AddString(functionName);
-				
+
 				std::cout << moduleName << " ";
 				std::cout << functionName << "\n";
 				return true;
@@ -1383,7 +1381,7 @@ namespace SylvanLanguage {
 			return false;
 		}
 
-		inline bool CALL_MEMBER_FUNC(const std::string& functionName, const std::string& modulePath, const std::string& globalVarName, size_t localvarOffest) {
+		inline bool CALL_MEMBER_FUNC(const std::string& functionName, const std::string& modulePath, const std::string& globalVarName, int localvarOffest) {
 			auto it = FindAsm(functionName);
 			if (it.has_value()) {
 				std::cout << functionName << " ";
@@ -1401,7 +1399,7 @@ namespace SylvanLanguage {
 				else {
 					data->AddValue<unsigned char>((unsigned char)0x00);
 					std::cout << "0x01 ";
-					data->AddValue<size_t>(localvarOffest);
+					data->AddValue<int>(localvarOffest);
 					std::cout << localvarOffest << "\n";
 				}
 				return true;
@@ -1428,7 +1426,6 @@ namespace SylvanLanguage {
 
 	private:
 		inline std::optional<ESlgd87Asm> FindAsm(const std::string& asmStr) {
-			
 			return mConfig->FindAsm(asmStr);
 		}
 
@@ -1457,8 +1454,6 @@ namespace SylvanLanguage {
 			{"if",		ETokenDesc::KEYWORLD_if},
 			{"else",	ETokenDesc::KEYWORLD_else},
 			{"return",	ETokenDesc::KEYWORLD_return},
-			{"switch",	ETokenDesc::KEYWORLD_switch},
-			{"case",	ETokenDesc::KEYWORLD_case},
 			{"for",		ETokenDesc::KEYWORLD_for},
 			{"break",	ETokenDesc::KEYWORLD_break},
 			{"continue",	ETokenDesc::KEYWORLD_continue},
@@ -1471,7 +1466,7 @@ namespace SylvanLanguage {
 			{'*', ETokenDesc::MUL},
 			{'/', ETokenDesc::DIV},
 			{'%', ETokenDesc::MOD},
-		
+
 			{'=', ETokenDesc::EQUAL},
 			{'&', ETokenDesc::AND},
 			{'|', ETokenDesc::OR},

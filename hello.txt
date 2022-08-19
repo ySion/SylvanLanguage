@@ -3,9 +3,9 @@
 	Author: Lee In 2022.
 */
 
-using "IO::output";   // import module: IO
+//using "output";   // import module: IO
 
-module "IO::hello" {
+module "Dom" {
 
 	int ai = 122 * 5 * (99 + 15);
 	float af= 122 * 4 * (15 + 15) + ai;

@@ -190,12 +190,12 @@ namespace SylvanLanguage {
 
 	struct SLocalVariableDesc {
 		std::string mTypeStr;
-		size_t mVariableSize{};
+		int mVariableSize{};
 		long long mVariableOffest{};
 	};
 
 	struct SLocalVariableCodeBlock {
-		size_t mSize;
+		int mSize;
 		std::unordered_map<std::string, SLocalVariableDesc>mLocalVariable{};
 	};
 
@@ -222,7 +222,7 @@ namespace SylvanLanguage {
 	};
 	
 	struct SStatementSegment {
-		size_t Idx{};
+		int Idx{};
 
 		EStatementBasicType BasicType = EStatementBasicType::ERROR_BASICTYPE; // 基本类型
 		SlgTokenItem Token;
@@ -231,8 +231,8 @@ namespace SylvanLanguage {
 		std::string ModuleName{};
 		std::string MainName{};
 		std::string MemberName{};
-		size_t ArgBegin{};
-		size_t EndPos{};
+		int ArgBegin{};
+		int EndPos{};
 
 		std::string VarNameDesc{};
 		std::string VarTypeDesc = "";
@@ -245,7 +245,7 @@ namespace SylvanLanguage {
 		std::string mFunctionName;
 		std::string mRetType;
 		std::vector<std::pair<std::string, std::string>> mArgs;
-		std::pair<size_t, size_t> mFunctionBody;
+		std::pair<int, int> mFunctionBody;
 		bool IsExport = false;
 	};
 
@@ -262,7 +262,7 @@ namespace SylvanLanguage {
 
 		std::unique_ptr<D87AssemblyWriter> mAsmGen;
 
-		size_t mLocalVariableStackSize{};
+		int mLocalVariableStackSize{};
 		std::vector<SLocalVariableCodeBlock> mLocalVariable{};
 
 		std::vector<SFunctionDefineInfo> mFunctionDefineTable;
@@ -280,15 +280,15 @@ namespace SylvanLanguage {
 
 		void Splitstatement();
 
-		bool D_using(size_t& idx, size_t bDepth);
+		bool D_using(int& idx, int bDepth);
 
-		bool D_module(size_t& idx, size_t& bDepth);
+		bool D_module(int& idx, int& bDepth);
 
-		bool D_Declare(size_t& idx, size_t bDepth, bool ignoreDepth = false);
+		bool D_Declare(int& idx, int bDepth, bool ignoreDepth = false);
 
-		bool IsDeclare(size_t idx);
+		bool IsDeclare(int idx);
 
-		bool FunctionDeclare(std::string returnType, std::string functionName, size_t& idx);
+		bool FunctionDeclare(std::string returnType, std::string functionName, int& idx);
 
 		bool GlobalVariableDefaultDefine(int r_idx, std::string varType, std::string varName);
 
@@ -300,11 +300,11 @@ namespace SylvanLanguage {
 		
 		bool LocalVariableBlockPop();
 
-		bool GlobalVariableAssignmentDefine(std::string varType, std::string varName, size_t& idx);
+		bool GlobalVariableAssignmentDefine(std::string varType, std::string varName, int& idx);
 
-		bool LocalVariableAssignmentDefine(std::string varType, std::string varName, size_t& idx, int depth);
+		bool LocalVariableAssignmentDefine(std::string varType, std::string varName, int& idx, int depth);
 
-		bool D_IntentifierAnalysis(size_t& idx, size_t bDepth, bool StaticCompile = false);
+		bool D_IntentifierAnalysis(int& idx, int bDepth, bool StaticCompile = false);
 
 		bool D_FunctionBodySolver(SFunctionDefineInfo& info);
 
@@ -312,11 +312,11 @@ namespace SylvanLanguage {
 
 		void FreeAllRegister();
 
-		size_t GetTypeSize(std::string tp);
+		int GetTypeSize(std::string tp);
 
-		SStatementSegment ExprSolver(size_t start_idx, size_t end_idx, int recursionDepth = 0);
+		SStatementSegment ExprSolver(int start_idx, int end_idx, int recursionDepth = 0);
 
-		SStatementSegment ExprSolverCall(size_t minprop, size_t maxprop, size_t currentprop, std::vector<SStatementSegment>& items, size_t start, size_t end);
+		SStatementSegment ExprSolverCall(int minprop, int maxprop, int currentprop, std::vector<SStatementSegment>& items, int start, int end);
 
 		SStatementSegment SingleStatementSegmentSolver(SStatementSegment& item);
 
@@ -328,13 +328,13 @@ namespace SylvanLanguage {
 
 		SStatementSegment DescGenerator(SStatementSegment& item);
 		
-		bool D_CodeBlockSolver(size_t idxStart, size_t idxEnd, int depth);
+		bool D_CodeBlockSolver(int idxStart, int idxEnd, int depth);
 
 		std::optional<CompilerConfig::SBindingFunctionDesc> FindBindingFunction(const std::string& memberFunctionName);
 
 		std::optional<std::string> GetTypeCompatibleAsmForPush(std::string A, std::string B);
 		
-		std::tuple<std::string, std::string, size_t, unsigned short, short, int ,long long, double, std::string> GetVarAsmType(SStatementSegment& item);
+		std::tuple<std::string, std::string, int, unsigned short, short, int ,long long, double, std::string> GetVarAsmType(SStatementSegment& item);
 		
 		//返回 返回类型 和汇编
 		std::optional<std::pair<std::string, std::string>> GetTypeCompatibleAsmForBinaryOperator(ETokenDesc op, std::string A, std::string B);
@@ -348,7 +348,7 @@ namespace SylvanLanguage {
 		// VName - 变量 / 属性 / 函数 名字 
 		// FName - 成员变量名字 / 成员函数名字 
 		// argsBegin, argsEnd 如果有函数， 函数参数的范围， 包含 "(" 和 ")", argsEnd也是分析结束的地址
-		bool GetIdentifierSegment(size_t start_idx, size_t limited_end_idx, EStatementVarType& type, std::string& moduleName, std::string& varName, std::string& memberName, size_t& argsBegin, size_t& argsEnd); 
+		bool GetIdentifierSegment(int start_idx, int limited_end_idx, EStatementVarType& type, std::string& moduleName, std::string& varName, std::string& memberName, int& argsBegin, int& argsEnd);
 
 		std::optional<CompilerConfig::SInlineFunctionDesc> FindMemberFunction(const std::string& variableType, const std::string& memberFunctionName);
 
@@ -356,7 +356,7 @@ namespace SylvanLanguage {
 
 		std::optional<CompilerConfig::SInlineFunctionDesc> FindInlineFunction(const std::string& functionName);
 
-		std::optional<std::pair<size_t, SLocalVariableDesc>> FindLocalVariable(const std::string& varName);
+		std::optional<std::pair<int, SLocalVariableDesc>> FindLocalVariable(const std::string& varName);
 
 		std::optional<SModuleGlobalVariableDesc> FindGlobalVariable(const std::string& varName);
 
