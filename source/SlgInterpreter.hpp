@@ -215,7 +215,6 @@ namespace SylvanLanguage {
 
 		}
 
-
 		//0 局部变量(栈)， 1全局变量， 2寄存器， 4常量
 		inline void GetVal(int CS) {
 			//return *(unsigned char*)(AsmData + CS);
@@ -231,13 +230,6 @@ namespace SylvanLanguage {
 				int Depth = 0;
 				while (true) {
 					switch ((ESlgd87Asm)(*(unsigned short*)(AsmData + CS))) {
-
-					}
-					ESlgd87Asm a;
-
-					switch (a
-						)
-					{
 					case SylvanLanguage::ESlgd87Asm::CALL:
 						break;
 					case SylvanLanguage::ESlgd87Asm::M_MATRIAX_SET2:
