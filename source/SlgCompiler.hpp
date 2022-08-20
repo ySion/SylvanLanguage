@@ -191,7 +191,7 @@ namespace SylvanLanguage {
 	struct SLocalVariableDesc {
 		std::string mTypeStr;
 		int mVariableSize{};
-		long long mVariableOffest{};
+		int mVariableOffest{};
 	};
 
 	struct SLocalVariableCodeBlock {
@@ -218,9 +218,9 @@ namespace SylvanLanguage {
 		MEMBER_VAR,
 		MEMBER_FUNC,
 		ERROR_VARTYPE,
-		
+
 	};
-	
+
 	struct SStatementSegment {
 		int Idx{};
 
@@ -251,7 +251,7 @@ namespace SylvanLanguage {
 
 	class SourceCodeCompile {
 		friend class D87AssemblyWriter;
-		
+
 		RunTimeNetWork* mNetWork;
 		CompilerConfig* mCompilerConfig;
 		SModuleInfo* mModuleInfo{};
@@ -280,8 +280,6 @@ namespace SylvanLanguage {
 
 		void Splitstatement();
 
-		bool D_using(int& idx, int bDepth);
-
 		bool D_module(int& idx, int& bDepth);
 
 		bool D_Declare(int& idx, int bDepth, bool ignoreDepth = false);
@@ -293,11 +291,11 @@ namespace SylvanLanguage {
 		bool GlobalVariableDefaultDefine(int r_idx, std::string varType, std::string varName);
 
 		bool LocalVariableDefaultDefine(int r_idx, std::string varType, std::string varName, int depth);
-		
+
 		bool LocalVariableDefaultDefineDetail(std::string varType, std::string varName, int depth);
 
 		bool LocalVariableBlockRemove(int depth);
-		
+
 		bool LocalVariableBlockPop();
 
 		bool GlobalVariableAssignmentDefine(std::string varType, std::string varName, int& idx);
@@ -327,15 +325,15 @@ namespace SylvanLanguage {
 		SStatementSegment ConstSolver(SStatementSegment& item);
 
 		SStatementSegment DescGenerator(SStatementSegment& item);
-		
+
 		bool D_CodeBlockSolver(int idxStart, int idxEnd, int depth);
 
 		std::optional<CompilerConfig::SBindingFunctionDesc> FindBindingFunction(const std::string& memberFunctionName);
 
 		std::optional<std::string> GetTypeCompatibleAsmForPush(std::string A, std::string B);
-		
-		std::tuple<std::string, std::string, int, unsigned short, short, int ,long long, double, std::string> GetVarAsmType(SStatementSegment& item);
-		
+
+		std::tuple<std::string, std::string, int, unsigned short, short, int, long long, double, std::string> GetVarAsmType(SStatementSegment& item);
+
 		//返回 返回类型 和汇编
 		std::optional<std::pair<std::string, std::string>> GetTypeCompatibleAsmForBinaryOperator(ETokenDesc op, std::string A, std::string B);
 
@@ -377,19 +375,19 @@ namespace SylvanLanguage {
 		RuleTable::SlgFLOAT FloatConstexprCalcValueBinary(ETokenDesc desc, RuleTable::SlgFLOAT A, RuleTable::SlgFLOAT B);
 
 		bool ASM_PUSH(const std::string&, SStatementSegment&);
-		
+
 		bool ASM_UNARY(const std::string&, SStatementSegment&);
-		
+
 		bool ASM_BINARY(const std::string&, SStatementSegment&, SStatementSegment&);
-		
+
 		bool ASM_CALL(const std::string& moduleName, const std::string& FunctionName);
-		
+
 		bool ASM_CALL_INLINE(const std::string&);
-		
-		bool ASM_CALL_MEMBER_FUNC(const std::string& , SStatementSegment&);
-		
+
+		bool ASM_CALL_MEMBER_FUNC(const std::string&, SStatementSegment&);
+
 		void ASM_MARK_BP(int offest);
-		
+
 		void ASM_FUNTCION_RET();
 	};
 }

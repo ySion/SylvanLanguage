@@ -24,7 +24,6 @@ int main() {
 		bool t = env.CompileModule("Hello", "Dom");
 
 		std::cout << "\n\n" << t << "\n";
-
 	}
 
 	return 0;

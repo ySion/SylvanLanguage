@@ -50,10 +50,6 @@ namespace SylvanLanguage {
 
 				switch (mTokens.at(i).mDesc)
 				{
-				case ETokenDesc::KEYWORLD_using:
-					if (!D_using(i, bracketDepth))
-						return;
-					break;
 				case ETokenDesc::KEYWORLD_module:
 					if (!D_module(i, bracketDepth))
 						return;
@@ -206,6 +202,7 @@ namespace SylvanLanguage {
 				}
 			}break;
 			case ETokenDesc::IDENTIFIER:
+				std::cout << "====================================Depth " << depth << '\n';
 				if (IsDeclare(idx)) {
 					if (!D_Declare(idx, depth, true)) {
 						return false;
@@ -224,33 +221,6 @@ namespace SylvanLanguage {
 		return true;
 	}
 
-
-	bool SourceCodeCompile::D_using(int& idx, int bDepth) {
-		if (idx + 2 > mTokens.size()) {
-			mErrorMachine->AddError("Missing content after using. Format: using \"module Path\";", mTokens.at(idx).mLineNumber, mTokens.at(idx).mColNumber);
-			return false;
-		}
-
-		if (bDepth != 0) {
-			mErrorMachine->AddError("Using statement is not allowed in bracket.", mTokens.at(idx).mLineNumber, mTokens.at(idx).mColNumber);
-			return false;
-		}
-		idx++;
-		if (mTokens.at(idx).mDesc != ETokenDesc::STRING) {
-			mErrorMachine->AddError("Using stament need a const string as a argument.", mTokens.at(idx).mLineNumber, mTokens.at(idx).mColNumber);
-			return false;
-		}
-
-		std::string moduleName = mTokens.at(idx).GetValue<std::string>();
-
-		idx++;
-		if (mTokens.at(idx).mDesc != ETokenDesc::END) {
-			mErrorMachine->AddError("Losing ';' after statement.", mTokens.at(idx).mLineNumber, mTokens.at(idx).mColNumber);
-
-		}
-
-		return true;
-	}
 
 	bool SourceCodeCompile::D_module(int& idx, int& bDepth) {
 		if (idx + 2 > mTokens.size()) {
@@ -364,7 +334,6 @@ namespace SylvanLanguage {
 			return true;
 		}
 		else {
-
 			return false;
 		}
 	}
@@ -555,30 +524,18 @@ namespace SylvanLanguage {
 		mAsmGen->MARK_BP(offest);
 	}
 
-	bool SourceCodeCompile::LocalVariableBlockRemove(int depth) {
-		if (depth < 2) return false;
-		if (mLocalVariable.size() >= depth - 1) {
-			int sizep = 0;
-			for (int i = depth - 1; i < mLocalVariable.size(); ++i) {
-				sizep += mLocalVariable[i].mSize;
-			}
-
-			//pop sizep;
-			mLocalVariableStackSize -= sizep;
-			mLocalVariable.erase(mLocalVariable.begin() + depth - 2, mLocalVariable.end());
-
-			std::cout << "LocalVariableBlockRemove : " << depth - 2 << " Total Size: " << mLocalVariableStackSize << " Layer Count: " << mLocalVariable.size() - 1 << "\n";
-			return true;
-		}
-		return false;
-	}
-
 	bool SourceCodeCompile::LocalVariableBlockPop() {
 		if (mLocalVariable.size() < 1) return false;
 		mLocalVariableStackSize -= mLocalVariable[mLocalVariable.size() - 1].mSize;
 
 		std::cout << "Local Variable Layer Pop : " << mLocalVariable.size() - 1 << " Total Size: " << mLocalVariableStackSize << " Layer Count: " << mLocalVariable.size() - 1 << "\n";
 
+		size_t idx = mLocalVariable.size() - 1;
+		for (auto& i : mLocalVariable[idx].mLocalVariable) {
+			if (i.second.mTypeStr == "string") {
+				mAsmGen->POP_STR(i.second.mVariableOffest);
+			}
+		}
 		mLocalVariable.erase(mLocalVariable.begin() + mLocalVariable.size() - 1);
 		return true;
 	}
@@ -603,8 +560,8 @@ namespace SylvanLanguage {
 	bool SourceCodeCompile::LocalVariableAssignmentDefine(std::string varType, std::string varName, int& idx, int depth) {
 		if (LocalVariableDefaultDefine(idx, varType, varName, depth)) {
 			int r_idx = idx - 1;
-			int Bdepth = 0;
-			if (D_IntentifierAnalysis(r_idx, Bdepth, false)) {
+
+			if (D_IntentifierAnalysis(r_idx, depth, false)) {
 				idx = r_idx;
 				return true;
 			}
@@ -618,6 +575,7 @@ namespace SylvanLanguage {
 	}
 
 	bool SourceCodeCompile::D_IntentifierAnalysis(int& idx, int bDepth, bool ignoreDepth) {
+
 		if (ignoreDepth == false) {
 			if (bDepth == 0) {
 				mErrorMachine->AddError("Identifier operation only write in code block.", mTokens.at(idx).mLineNumber, mTokens.at(idx).mColNumber);
@@ -1578,11 +1536,9 @@ namespace SylvanLanguage {
 				return itor->second;
 			}
 			else {
-				for (auto& i : mModuleInfo->mDependenceModules) {
-					auto it = mNetWork->FindFunction(i, varName);
-					if (it.has_value()) {
-						return it.value();
-					}
+				auto it = mNetWork->FindFunction(ModuleName, varName);
+				if (it.has_value()) {
+					return it.value();
 				}
 			}
 		}

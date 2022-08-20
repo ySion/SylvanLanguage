@@ -3,8 +3,6 @@
 	Author: Lee In 2022.
 */
 
-//using "output";   // import module: IO
-
 module "Dom" {
 
 	int ai = 122 * 5 * (99 + 15);
@@ -25,5 +23,6 @@ module "Dom" {
 	void SetZero(int A) export {
 		A = 5;	
 		ai = (!55.0 + 5);
+		string hello = "hello" + 1;
 	}
 }

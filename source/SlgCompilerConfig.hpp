@@ -189,23 +189,45 @@ namespace SylvanLanguage {
 		}
 
 		virtual ~AssemblyData();
-		inline size_t GetAllSize() const {
+
+		constexpr size_t GetAllSize() const {
 			return mDataAllSize;
 		}
 
-		inline size_t GetCurrentSize() const {
+		constexpr size_t GetCurrentSize() const {
 			return mDataUsingSize;
+		}
+
+		inline void* GetData() {
+			return mRoot;
+		}
+
+		inline AssemblyData(const AssemblyData& item) {
+			mRoot = malloc(item.GetCurrentSize());
+			if (mRoot != nullptr && item.mRoot != nullptr) {
+				memcpy(mRoot, item.mRoot, item.GetCurrentSize());
+			}
+		}
+
+		inline AssemblyData& operator=(const AssemblyData& item) {
+			mRoot = malloc(item.GetCurrentSize());
+			if (mRoot != nullptr && item.mRoot != nullptr) {
+				memcpy(mRoot, item.mRoot, item.GetCurrentSize());
+			}
 		}
 
 		void Show();
 	};
 
-	enum class ESlgd87Asm {
-		MODULE_DEP = 0x8001,
-		MODULE_SELF,
-		GLOBAL_VAR_MALLOC,
 
-		CALL,
+
+#define ASM_BASIC(A) A##_L_C,A##_L_G,A##_L_R  ,A##_L_L,	\
+			A##_G_C, A##_G_G, A##_G_R, A##_G_L,	\
+			A##_R_C, A##_R_G, A##_R_R, A##_R_L
+#define ASM_BASIC_UN(A) A##_C, A##_G, A##_L, A##_R
+	enum class ESlgd87Asm {
+
+		CALL = 0,
 
 		M_MATRIAX_SET2,
 		M_MATRIAX_SET3,
@@ -310,244 +332,234 @@ namespace SylvanLanguage {
 		FRACT,
 
 		//基本指令
-		MOV,
-		MOVIF,
-		MOVFI,
-		MOVF,
-		MOVSTR,
-		MOVSTRI,
-		MOVSTRF,
-		MOVSTRV2,
-		MOVSTRV3,
-		MOVSTRV4,
-		MOVV2,
-		MOVV3,
-		MOVV4,
-		MOVMAT2,
-		MOVMAT3,
-		MOVMAT4,
-		ADDTO,
-		ADDTOIF,
-		ADDTOFI,
-		ADDTOF,
-		ADDTOSTR,
-		ADDTOSTRI,
-		ADDTOSTRF,
-		ADDTOSTRV2,
-		ADDTOSTRV3,
-		ADDTOSTRV4,
-		ADDTOV2,
-		ADDTOV3,
-		ADDTOV4,
-		ADDTOMAT2,
-		ADDTOMAT3,
-		ADDTOMAT4,
-		SUBTO,
-		SUBTOIF,
-		SUBTOFI,
-		SUBTOF,
-		SUBTOV2,
-		SUBTOV3,
-		SUBTOV4,
-		SUBTOMAT2,
-		SUBTOMAT3,
-		SUBTOMAT4,
-		MULTO,
-		MULTOIF,
-		MULTOFI,
-		MULTOF,
-		MULTOV2,
-		MULTOV3,
-		MULTOV4,
-		MULTOV2F,
-		MULTOV3F,
-		MULTOV4F,
-		MULTOV2I,
-		MULTOV3I,
-		MULTOV4I,
-		MULTOV2MAT2,
-		MULTOV3MAT3,
-		MULTOV4MAT4,
-		MULTOMAT2,
-		MULTOMAT3,
-		MULTOMAT4,
-		DIVTO,
-		DIVTOIF,
-		DIVTOFI,
-		DIVTOF,
-		DIVTOV2,
-		DIVTOV3,
-		DIVTOV4,
-		DIVTOV2F,
-		DIVTOV3F,
-		DIVTOV4F,
-		DIVTOV2I,
-		DIVTOV3I,
-		DIVTOV4I,
-		DIVTOMAT2,
-		DIVTOMAT3,
-		DIVTOMAT4,
-		MODTO,
-		ANDTO,
-		ORTO,
-		XORTO,
-		INVTO,
-		RSHTO,
-		LSHTO,
-		NOT,
-		NOTF,
-		INV,
-		PUSH,
-		PUSHIF,
-		PUSHFI,
-		PUSHF,
-		PUSHV2,
-		PUSHV3,
-		PUSHV4,
-		PUSHMAT2,
-		PUSHMAT3,
-		PUSHMAT4,
-		PUSHSTR,
-		ADD,
-		ADDIF,
-		ADDFI,
-		ADDF,
-		ADDSTRI,
-		ADDSTRF,
-		ADDSTR,
-		ADDSTRV2,
-		ADDSTRV3,
-		ADDSTRV4,
-		ADDV2,
-		ADDV3,
-		ADDV4,
-		ADDMAT2,
-		ADDMAT3,
-		ADDMAT4,
-		SUB,
-		SUBIF,
-		SUBFI,
-		SUBF,
-		SUBV2,
-		SUBV3,
-		SUBV4,
-		SUBMAT2,
-		SUBMAT3,
-		SUBMAT4,
-		MUL,
-		MULIF,
-		MULIV2,
-		MULIV3,
-		MULIV4,
-		MULIMAT2,
-		MULIMAT3,
-		MULIMAT4,
-		MULFI,
-		MULF,
-		MULFV2,
-		MULFV3,
-		MULFV4,
-		MULFMAT2,
-		MULFMAT3,
-		MULFMAT4,
-		MULV2,
-		MULV3,
-		MULV4,
-		MULV2F,
-		MULV3F,
-		MULV4F,
-		MULV2I,
-		MULV3I,
-		MULV4I,
-		MULMAT2V2,
-		MULMAT3V3,
-		MULMAT4V4,
-		MULMAT2,
-		MULMAT3,
-		MULMAT4,
-		MULMAT2F,
-		MULMAT3F,
-		MULMAT4F,
-		DIV,
-		DIVIF,
-		DIVFI,
-		DIVF,
-		DIVV2,
-		DIVV3,
-		DIVV4,
-		DIVV2F,
-		DIVV3F,
-		DIVV4F,
-		DIVV2I,
-		DIVV3I,
-		DIVV4I,
-		DIVMAT2,
-		DIVMAT3,
-		DIVMAT4,
-		MOD,
-		LSH,
-		RSH,
-		SCMP,
-		SCMPIF,
-		SCMPFI,
-		SCMPF,
-		LCMP,
-		LCMPIF,
-		LCMPFI,
-		LCMPF,
-		SECMP,
-		SECMPIF,
-		SECMPFI,
-		SECMPF,
-		LECMP,
-		LECMPIF,
-		LECMPFI,
-		LECMPF,
-		ICMP,
-		ICMPIF,
-		ICMPSTR,
-		ICMPFI,
-		ICMPF,
-		ICMPV2,
-		ICMPV3,
-		ICMPV4,
-		ICMPMAT2,
-		ICMPMAT3,
-		ICMPMAT4,
-		NCMP,
-		NCMPIF,
-		NCMPSTR,
-		NCMPFI,
-		NCMPF,
-		NCMPV2,
-		NCMPV3,
-		NCMPV4,
-		NCMPMAT2,
-		NCMPMAT3,
-		NCMPMAT4,
-		AND,
-		OR,
-		XOR,
-		LOGICAND,
-		LOGICOR,
+		ASM_BASIC(MOV),
+		ASM_BASIC(MOVIF),
+		ASM_BASIC(MOVFI),
+		ASM_BASIC(MOVF),
+		ASM_BASIC(MOVSTR),
+		ASM_BASIC(MOVSTRI),
+		ASM_BASIC(MOVSTRF),
+		ASM_BASIC(MOVSTRV2),
+		ASM_BASIC(MOVSTRV3),
+		ASM_BASIC(MOVSTRV4),
+		ASM_BASIC(MOVV2),
+		ASM_BASIC(MOVV3),
+		ASM_BASIC(MOVV4),
+		ASM_BASIC(MOVMAT2),
+		ASM_BASIC(MOVMAT3),
+		ASM_BASIC(MOVMAT4),
+		ASM_BASIC(ADDTO),
+		ASM_BASIC(ADDTOIF),
+		ASM_BASIC(ADDTOFI),
+		ASM_BASIC(ADDTOF),
+		ASM_BASIC(ADDTOSTR),
+		ASM_BASIC(ADDTOSTRI),
+		ASM_BASIC(ADDTOSTRF),
+		ASM_BASIC(ADDTOSTRV2),
+		ASM_BASIC(ADDTOSTRV3),
+		ASM_BASIC(ADDTOSTRV4),
+		ASM_BASIC(ADDTOV2),
+		ASM_BASIC(ADDTOV3),
+		ASM_BASIC(ADDTOV4),
+		ASM_BASIC(ADDTOMAT2),
+		ASM_BASIC(ADDTOMAT3),
+		ASM_BASIC(ADDTOMAT4),
+		ASM_BASIC(SUBTO),
+		ASM_BASIC(SUBTOIF),
+		ASM_BASIC(SUBTOFI),
+		ASM_BASIC(SUBTOF),
+		ASM_BASIC(SUBTOV2),
+		ASM_BASIC(SUBTOV3),
+		ASM_BASIC(SUBTOV4),
+		ASM_BASIC(SUBTOMAT2),
+		ASM_BASIC(SUBTOMAT3),
+		ASM_BASIC(SUBTOMAT4),
+		ASM_BASIC(MULTO),
+		ASM_BASIC(MULTOIF),
+		ASM_BASIC(MULTOFI),
+		ASM_BASIC(MULTOF),
+		ASM_BASIC(MULTOV2),
+		ASM_BASIC(MULTOV3),
+		ASM_BASIC(MULTOV4),
+		ASM_BASIC(MULTOV2F),
+		ASM_BASIC(MULTOV3F),
+		ASM_BASIC(MULTOV4F),
+		ASM_BASIC(MULTOV2I),
+		ASM_BASIC(MULTOV3I),
+		ASM_BASIC(MULTOV4I),
+		ASM_BASIC(MULTOV2MAT2),
+		ASM_BASIC(MULTOV3MAT3),
+		ASM_BASIC(MULTOV4MAT4),
+		ASM_BASIC(MULTOMAT2),
+		ASM_BASIC(MULTOMAT3),
+		ASM_BASIC(MULTOMAT4),
+		ASM_BASIC(DIVTO),
+		ASM_BASIC(DIVTOIF),
+		ASM_BASIC(DIVTOFI),
+		ASM_BASIC(DIVTOF),
+		ASM_BASIC(DIVTOV2),
+		ASM_BASIC(DIVTOV3),
+		ASM_BASIC(DIVTOV4),
+		ASM_BASIC(DIVTOV2F),
+		ASM_BASIC(DIVTOV3F),
+		ASM_BASIC(DIVTOV4F),
+		ASM_BASIC(DIVTOV2I),
+		ASM_BASIC(DIVTOV3I),
+		ASM_BASIC(DIVTOV4I),
+		ASM_BASIC(DIVTOMAT2),
+		ASM_BASIC(DIVTOMAT3),
+		ASM_BASIC(DIVTOMAT4),
+		ASM_BASIC(MODTO),
+		ASM_BASIC(ANDTO),
+		ASM_BASIC(ORTO),
+		ASM_BASIC(XORTO),
+		ASM_BASIC(INVTO),
+		ASM_BASIC(RSHTO),
+		ASM_BASIC(LSHTO),
+		ASM_BASIC(ADD),
+		ASM_BASIC(ADDIF),
+		ASM_BASIC(ADDFI),
+		ASM_BASIC(ADDF),
+		ASM_BASIC(ADDSTRI),
+		ASM_BASIC(ADDSTRF),
+		ASM_BASIC(ADDSTR),
+		ASM_BASIC(ADDSTRV2),
+		ASM_BASIC(ADDSTRV3),
+		ASM_BASIC(ADDSTRV4),
+		ASM_BASIC(ADDV2),
+		ASM_BASIC(ADDV3),
+		ASM_BASIC(ADDV4),
+		ASM_BASIC(ADDMAT2),
+		ASM_BASIC(ADDMAT3),
+		ASM_BASIC(ADDMAT4),
+		ASM_BASIC(SUB),
+		ASM_BASIC(SUBIF),
+		ASM_BASIC(SUBFI),
+		ASM_BASIC(SUBF),
+		ASM_BASIC(SUBV2),
+		ASM_BASIC(SUBV3),
+		ASM_BASIC(SUBV4),
+		ASM_BASIC(SUBMAT2),
+		ASM_BASIC(SUBMAT3),
+		ASM_BASIC(SUBMAT4),
+		ASM_BASIC(MUL),
+		ASM_BASIC(MULIF),
+		ASM_BASIC(MULIV2),
+		ASM_BASIC(MULIV3),
+		ASM_BASIC(MULIV4),
+		ASM_BASIC(MULIMAT2),
+		ASM_BASIC(MULIMAT3),
+		ASM_BASIC(MULIMAT4),
+		ASM_BASIC(MULFI),
+		ASM_BASIC(MULF),
+		ASM_BASIC(MULFV2),
+		ASM_BASIC(MULFV3),
+		ASM_BASIC(MULFV4),
+		ASM_BASIC(MULFMAT2),
+		ASM_BASIC(MULFMAT3),
+		ASM_BASIC(MULFMAT4),
+		ASM_BASIC(MULV2),
+		ASM_BASIC(MULV3),
+		ASM_BASIC(MULV4),
+		ASM_BASIC(MULV2F),
+		ASM_BASIC(MULV3F),
+		ASM_BASIC(MULV4F),
+		ASM_BASIC(MULV2I),
+		ASM_BASIC(MULV3I),
+		ASM_BASIC(MULV4I),
+		ASM_BASIC(MULMAT2V2),
+		ASM_BASIC(MULMAT3V3),
+		ASM_BASIC(MULMAT4V4),
+		ASM_BASIC(MULMAT2),
+		ASM_BASIC(MULMAT3),
+		ASM_BASIC(MULMAT4),
+		ASM_BASIC(MULMAT2F),
+		ASM_BASIC(MULMAT3F),
+		ASM_BASIC(MULMAT4F),
+		ASM_BASIC(DIV),
+		ASM_BASIC(DIVIF),
+		ASM_BASIC(DIVFI),
+		ASM_BASIC(DIVF),
+		ASM_BASIC(DIVV2),
+		ASM_BASIC(DIVV3),
+		ASM_BASIC(DIVV4),
+		ASM_BASIC(DIVV2F),
+		ASM_BASIC(DIVV3F),
+		ASM_BASIC(DIVV4F),
+		ASM_BASIC(DIVV2I),
+		ASM_BASIC(DIVV3I),
+		ASM_BASIC(DIVV4I),
+		ASM_BASIC(DIVMAT2),
+		ASM_BASIC(DIVMAT3),
+		ASM_BASIC(DIVMAT4),
+		ASM_BASIC(MOD),
+		ASM_BASIC(LSH),
+		ASM_BASIC(RSH),
+		ASM_BASIC(SCMP),
+		ASM_BASIC(SCMPIF),
+		ASM_BASIC(SCMPFI),
+		ASM_BASIC(SCMPF),
+		ASM_BASIC(LCMP),
+		ASM_BASIC(LCMPIF),
+		ASM_BASIC(LCMPFI),
+		ASM_BASIC(LCMPF),
+		ASM_BASIC(SECMP),
+		ASM_BASIC(SECMPIF),
+		ASM_BASIC(SECMPFI),
+		ASM_BASIC(SECMPF),
+		ASM_BASIC(LECMP),
+		ASM_BASIC(LECMPIF),
+		ASM_BASIC(LECMPFI),
+		ASM_BASIC(LECMPF),
+		ASM_BASIC(ICMP),
+		ASM_BASIC(ICMPIF),
+		ASM_BASIC(ICMPSTR),
+		ASM_BASIC(ICMPFI),
+		ASM_BASIC(ICMPF),
+		ASM_BASIC(ICMPV2),
+		ASM_BASIC(ICMPV3),
+		ASM_BASIC(ICMPV4),
+		ASM_BASIC(ICMPMAT2),
+		ASM_BASIC(ICMPMAT3),
+		ASM_BASIC(ICMPMAT4),
+		ASM_BASIC(NCMP),
+		ASM_BASIC(NCMPIF),
+		ASM_BASIC(NCMPSTR),
+		ASM_BASIC(NCMPFI),
+		ASM_BASIC(NCMPF),
+		ASM_BASIC(NCMPV2),
+		ASM_BASIC(NCMPV3),
+		ASM_BASIC(NCMPV4),
+		ASM_BASIC(NCMPMAT2),
+		ASM_BASIC(NCMPMAT3),
+		ASM_BASIC(NCMPMAT4),
+		ASM_BASIC(AND),
+		ASM_BASIC(OR),
+		ASM_BASIC(XOR),
+		ASM_BASIC(LOGICAND),
+		ASM_BASIC(LOGICOR),
+
+
+
+		ASM_BASIC_UN(NOT),
+		ASM_BASIC_UN(NOTF),
+		ASM_BASIC_UN(INV),
+		ASM_BASIC_UN(PUSH),
+		ASM_BASIC_UN(PUSHIF),
+		ASM_BASIC_UN(PUSHFI),
+		ASM_BASIC_UN(PUSHF),
+		ASM_BASIC_UN(PUSHV2),
+		ASM_BASIC_UN(PUSHV3),
+		ASM_BASIC_UN(PUSHV4),
+		ASM_BASIC_UN(PUSHMAT2),
+		ASM_BASIC_UN(PUSHMAT3),
+		ASM_BASIC_UN(PUSHMAT4),
+		ASM_BASIC_UN(PUSHSTR),
 
 		POP,
 		MARKBP,
-		FUNCTIONRET
-	};
-
-
-
-	enum class e_SlgType {
-		INT = 0x01,
-		FLOAT,
-		STRING,
-		VECTOR2,
-		VECTOR3,
-		VECTOR4,
-		MATRIX2X2,
-		MATRIX3X3,
-		MATRIX4X4
+		FUNCTIONRET,
+		POPSTR,
 	};
 
 	class CompilerConfig {
@@ -582,10 +594,19 @@ namespace SylvanLanguage {
 		std::unordered_map<std::string, double> InlineMarcoFloat{};
 
 #define STRMAPASM(A) {#A, ESlgd87Asm::##A}
+#define STRMAPASM_BASIC(A) STRMAPASM(A##_L_C),STRMAPASM(A##_L_G),STRMAPASM(A##_L_R)  ,STRMAPASM(A##_L_L),	\
+			STRMAPASM(A##_G_C), STRMAPASM(A##_G_G), STRMAPASM(A##_G_R), STRMAPASM(A##_G_L),	\
+			STRMAPASM(A##_R_C), STRMAPASM(A##_R_G), STRMAPASM(A##_R_R), STRMAPASM(A##_R_L)
+
+#define  STRMAPASM_BASIC_UN(A)  STRMAPASM(A##_C), STRMAPASM(A##_G), STRMAPASM(A##_L), STRMAPASM(A##_R)
 
 		std::unordered_map <std::string, ESlgd87Asm> StrMapAsm{
 
 			STRMAPASM(CALL),
+			STRMAPASM(POP),
+			STRMAPASM(MARKBP),
+			STRMAPASM(FUNCTIONRET),
+			STRMAPASM(POPSTR),
 
 			STRMAPASM(M_MATRIAX_SET2),
 			STRMAPASM(M_MATRIAX_SET3),
@@ -690,232 +711,232 @@ namespace SylvanLanguage {
 			STRMAPASM(FRACT),
 
 
-			STRMAPASM(MOV),
-			STRMAPASM(MOVIF),
-			STRMAPASM(MOVFI),
-			STRMAPASM(MOVF),
-			STRMAPASM(MOVSTR),
-			STRMAPASM(MOVSTRI),
-			STRMAPASM(MOVSTRF),
-			STRMAPASM(MOVSTRV2),
-			STRMAPASM(MOVSTRV3),
-			STRMAPASM(MOVSTRV4),
-			STRMAPASM(MOVV2),
-			STRMAPASM(MOVV3),
-			STRMAPASM(MOVV4),
-			STRMAPASM(MOVMAT2),
-			STRMAPASM(MOVMAT3),
-			STRMAPASM(MOVMAT4),
-			STRMAPASM(ADDTO),
-			STRMAPASM(ADDTOIF),
-			STRMAPASM(ADDTOFI),
-			STRMAPASM(ADDTOF),
-			STRMAPASM(ADDTOSTR),
-			STRMAPASM(ADDTOSTRI),
-			STRMAPASM(ADDTOSTRF),
-			STRMAPASM(ADDTOSTRV2),
-			STRMAPASM(ADDTOSTRV3),
-			STRMAPASM(ADDTOSTRV4),
-			STRMAPASM(ADDTOV2),
-			STRMAPASM(ADDTOV3),
-			STRMAPASM(ADDTOV4),
-			STRMAPASM(ADDTOMAT2),
-			STRMAPASM(ADDTOMAT3),
-			STRMAPASM(ADDTOMAT4),
-			STRMAPASM(SUBTO),
-			STRMAPASM(SUBTOIF),
-			STRMAPASM(SUBTOFI),
-			STRMAPASM(SUBTOF),
-			STRMAPASM(SUBTOV2),
-			STRMAPASM(SUBTOV3),
-			STRMAPASM(SUBTOV4),
-			STRMAPASM(SUBTOMAT2),
-			STRMAPASM(SUBTOMAT3),
-			STRMAPASM(SUBTOMAT4),
-			STRMAPASM(MULTO),
-			STRMAPASM(MULTOIF),
-			STRMAPASM(MULTOFI),
-			STRMAPASM(MULTOF),
-			STRMAPASM(MULTOV2),
-			STRMAPASM(MULTOV3),
-			STRMAPASM(MULTOV4),
-			STRMAPASM(MULTOV2F),
-			STRMAPASM(MULTOV3F),
-			STRMAPASM(MULTOV4F),
-			STRMAPASM(MULTOV2I),
-			STRMAPASM(MULTOV3I),
-			STRMAPASM(MULTOV4I),
-			STRMAPASM(MULTOV2MAT2),
-			STRMAPASM(MULTOV3MAT3),
-			STRMAPASM(MULTOV4MAT4),
-			STRMAPASM(MULTOMAT2),
-			STRMAPASM(MULTOMAT3),
-			STRMAPASM(MULTOMAT4),
-			STRMAPASM(DIVTO),
-			STRMAPASM(DIVTOIF),
-			STRMAPASM(DIVTOFI),
-			STRMAPASM(DIVTOF),
-			STRMAPASM(DIVTOV2),
-			STRMAPASM(DIVTOV3),
-			STRMAPASM(DIVTOV4),
-			STRMAPASM(DIVTOV2F),
-			STRMAPASM(DIVTOV3F),
-			STRMAPASM(DIVTOV4F),
-			STRMAPASM(DIVTOV2I),
-			STRMAPASM(DIVTOV3I),
-			STRMAPASM(DIVTOV4I),
-			STRMAPASM(DIVTOMAT2),
-			STRMAPASM(DIVTOMAT3),
-			STRMAPASM(DIVTOMAT4),
-			STRMAPASM(MODTO),
-			STRMAPASM(ANDTO),
-			STRMAPASM(ORTO),
-			STRMAPASM(XORTO),
-			STRMAPASM(INVTO),
-			STRMAPASM(RSHTO),
-			STRMAPASM(LSHTO),
-			STRMAPASM(NOT),
-			STRMAPASM(NOTF),
-			STRMAPASM(INV),
-			STRMAPASM(PUSH),
-			STRMAPASM(PUSHIF),
-			STRMAPASM(PUSHFI),
-			STRMAPASM(PUSHF),
-			STRMAPASM(PUSHV2),
-			STRMAPASM(PUSHV3),
-			STRMAPASM(PUSHV4),
-			STRMAPASM(PUSHMAT2),
-			STRMAPASM(PUSHMAT3),
-			STRMAPASM(PUSHMAT4),
-			STRMAPASM(PUSHSTR),
-			STRMAPASM(ADD),
-			STRMAPASM(ADDIF),
-			STRMAPASM(ADDFI),
-			STRMAPASM(ADDF),
-			STRMAPASM(ADDSTRI),
-			STRMAPASM(ADDSTRF),
-			STRMAPASM(ADDSTR),
-			STRMAPASM(ADDSTRV2),
-			STRMAPASM(ADDSTRV3),
-			STRMAPASM(ADDSTRV4),
-			STRMAPASM(ADDV2),
-			STRMAPASM(ADDV3),
-			STRMAPASM(ADDV4),
-			STRMAPASM(ADDMAT2),
-			STRMAPASM(ADDMAT3),
-			STRMAPASM(ADDMAT4),
-			STRMAPASM(SUB),
-			STRMAPASM(SUBIF),
-			STRMAPASM(SUBFI),
-			STRMAPASM(SUBF),
-			STRMAPASM(SUBV2),
-			STRMAPASM(SUBV3),
-			STRMAPASM(SUBV4),
-			STRMAPASM(SUBMAT2),
-			STRMAPASM(SUBMAT3),
-			STRMAPASM(SUBMAT4),
-			STRMAPASM(MUL),
-			STRMAPASM(MULIF),
-			STRMAPASM(MULIV2),
-			STRMAPASM(MULIV3),
-			STRMAPASM(MULIV4),
-			STRMAPASM(MULIMAT2),
-			STRMAPASM(MULIMAT3),
-			STRMAPASM(MULIMAT4),
-			STRMAPASM(MULFI),
-			STRMAPASM(MULF),
-			STRMAPASM(MULFV2),
-			STRMAPASM(MULFV3),
-			STRMAPASM(MULFV4),
-			STRMAPASM(MULFMAT2),
-			STRMAPASM(MULFMAT3),
-			STRMAPASM(MULFMAT4),
-			STRMAPASM(MULV2),
-			STRMAPASM(MULV3),
-			STRMAPASM(MULV4),
-			STRMAPASM(MULV2F),
-			STRMAPASM(MULV3F),
-			STRMAPASM(MULV4F),
-			STRMAPASM(MULV2I),
-			STRMAPASM(MULV3I),
-			STRMAPASM(MULV4I),
-			STRMAPASM(MULMAT2V2),
-			STRMAPASM(MULMAT3V3),
-			STRMAPASM(MULMAT4V4),
-			STRMAPASM(MULMAT2),
-			STRMAPASM(MULMAT3),
-			STRMAPASM(MULMAT4),
-			STRMAPASM(MULMAT2F),
-			STRMAPASM(MULMAT3F),
-			STRMAPASM(MULMAT4F),
-			STRMAPASM(DIV),
-			STRMAPASM(DIVIF),
-			STRMAPASM(DIVFI),
-			STRMAPASM(DIVF),
-			STRMAPASM(DIVV2),
-			STRMAPASM(DIVV3),
-			STRMAPASM(DIVV4),
-			STRMAPASM(DIVV2F),
-			STRMAPASM(DIVV3F),
-			STRMAPASM(DIVV4F),
-			STRMAPASM(DIVV2I),
-			STRMAPASM(DIVV3I),
-			STRMAPASM(DIVV4I),
-			STRMAPASM(DIVMAT2),
-			STRMAPASM(DIVMAT3),
-			STRMAPASM(DIVMAT4),
-			STRMAPASM(MOD),
-			STRMAPASM(LSH),
-			STRMAPASM(RSH),
-			STRMAPASM(SCMP),
-			STRMAPASM(SCMPIF),
-			STRMAPASM(SCMPFI),
-			STRMAPASM(SCMPF),
-			STRMAPASM(LCMP),
-			STRMAPASM(LCMPIF),
-			STRMAPASM(LCMPFI),
-			STRMAPASM(LCMPF),
-			STRMAPASM(SECMP),
-			STRMAPASM(SECMPIF),
-			STRMAPASM(SECMPFI),
-			STRMAPASM(SECMPF),
-			STRMAPASM(LECMP),
-			STRMAPASM(LECMPIF),
-			STRMAPASM(LECMPFI),
-			STRMAPASM(LECMPF),
-			STRMAPASM(ICMP),
-			STRMAPASM(ICMPIF),
-			STRMAPASM(ICMPSTR),
-			STRMAPASM(ICMPFI),
-			STRMAPASM(ICMPF),
-			STRMAPASM(ICMPV2),
-			STRMAPASM(ICMPV3),
-			STRMAPASM(ICMPV4),
-			STRMAPASM(ICMPMAT2),
-			STRMAPASM(ICMPMAT3),
-			STRMAPASM(ICMPMAT4),
-			STRMAPASM(NCMP),
-			STRMAPASM(NCMPIF),
-			STRMAPASM(NCMPSTR),
-			STRMAPASM(NCMPFI),
-			STRMAPASM(NCMPF),
-			STRMAPASM(NCMPV2),
-			STRMAPASM(NCMPV3),
-			STRMAPASM(NCMPV4),
-			STRMAPASM(NCMPMAT2),
-			STRMAPASM(NCMPMAT3),
-			STRMAPASM(NCMPMAT4),
-			STRMAPASM(AND),
-			STRMAPASM(OR),
-			STRMAPASM(XOR),
-			STRMAPASM(LOGICAND),
-			STRMAPASM(LOGICOR),
+
+			//以上是函数
+
+				STRMAPASM_BASIC(MOV),
+				STRMAPASM_BASIC(MOVIF),
+				STRMAPASM_BASIC(MOVFI),
+				STRMAPASM_BASIC(MOVF),
+				STRMAPASM_BASIC(MOVSTR),
+				STRMAPASM_BASIC(MOVSTRI),
+				STRMAPASM_BASIC(MOVSTRF),
+				STRMAPASM_BASIC(MOVSTRV2),
+				STRMAPASM_BASIC(MOVSTRV3),
+				STRMAPASM_BASIC(MOVSTRV4),
+				STRMAPASM_BASIC(MOVV2),
+				STRMAPASM_BASIC(MOVV3),
+				STRMAPASM_BASIC(MOVV4),
+				STRMAPASM_BASIC(MOVMAT2),
+				STRMAPASM_BASIC(MOVMAT3),
+				STRMAPASM_BASIC(MOVMAT4),
+				STRMAPASM_BASIC(ADDTO),
+				STRMAPASM_BASIC(ADDTOIF),
+				STRMAPASM_BASIC(ADDTOFI),
+				STRMAPASM_BASIC(ADDTOF),
+				STRMAPASM_BASIC(ADDTOSTR),
+				STRMAPASM_BASIC(ADDTOSTRI),
+				STRMAPASM_BASIC(ADDTOSTRF),
+				STRMAPASM_BASIC(ADDTOSTRV2),
+				STRMAPASM_BASIC(ADDTOSTRV3),
+				STRMAPASM_BASIC(ADDTOSTRV4),
+				STRMAPASM_BASIC(ADDTOV2),
+				STRMAPASM_BASIC(ADDTOV3),
+				STRMAPASM_BASIC(ADDTOV4),
+				STRMAPASM_BASIC(ADDTOMAT2),
+				STRMAPASM_BASIC(ADDTOMAT3),
+				STRMAPASM_BASIC(ADDTOMAT4),
+				STRMAPASM_BASIC(SUBTO),
+				STRMAPASM_BASIC(SUBTOIF),
+				STRMAPASM_BASIC(SUBTOFI),
+				STRMAPASM_BASIC(SUBTOF),
+				STRMAPASM_BASIC(SUBTOV2),
+				STRMAPASM_BASIC(SUBTOV3),
+				STRMAPASM_BASIC(SUBTOV4),
+				STRMAPASM_BASIC(SUBTOMAT2),
+				STRMAPASM_BASIC(SUBTOMAT3),
+				STRMAPASM_BASIC(SUBTOMAT4),
+				STRMAPASM_BASIC(MULTO),
+				STRMAPASM_BASIC(MULTOIF),
+				STRMAPASM_BASIC(MULTOFI),
+				STRMAPASM_BASIC(MULTOF),
+				STRMAPASM_BASIC(MULTOV2),
+				STRMAPASM_BASIC(MULTOV3),
+				STRMAPASM_BASIC(MULTOV4),
+				STRMAPASM_BASIC(MULTOV2F),
+				STRMAPASM_BASIC(MULTOV3F),
+				STRMAPASM_BASIC(MULTOV4F),
+				STRMAPASM_BASIC(MULTOV2I),
+				STRMAPASM_BASIC(MULTOV3I),
+				STRMAPASM_BASIC(MULTOV4I),
+				STRMAPASM_BASIC(MULTOV2MAT2),
+				STRMAPASM_BASIC(MULTOV3MAT3),
+				STRMAPASM_BASIC(MULTOV4MAT4),
+				STRMAPASM_BASIC(MULTOMAT2),
+				STRMAPASM_BASIC(MULTOMAT3),
+				STRMAPASM_BASIC(MULTOMAT4),
+				STRMAPASM_BASIC(DIVTO),
+				STRMAPASM_BASIC(DIVTOIF),
+				STRMAPASM_BASIC(DIVTOFI),
+				STRMAPASM_BASIC(DIVTOF),
+				STRMAPASM_BASIC(DIVTOV2),
+				STRMAPASM_BASIC(DIVTOV3),
+				STRMAPASM_BASIC(DIVTOV4),
+				STRMAPASM_BASIC(DIVTOV2F),
+				STRMAPASM_BASIC(DIVTOV3F),
+				STRMAPASM_BASIC(DIVTOV4F),
+				STRMAPASM_BASIC(DIVTOV2I),
+				STRMAPASM_BASIC(DIVTOV3I),
+				STRMAPASM_BASIC(DIVTOV4I),
+				STRMAPASM_BASIC(DIVTOMAT2),
+				STRMAPASM_BASIC(DIVTOMAT3),
+				STRMAPASM_BASIC(DIVTOMAT4),
+				STRMAPASM_BASIC(MODTO),
+				STRMAPASM_BASIC(ANDTO),
+				STRMAPASM_BASIC(ORTO),
+				STRMAPASM_BASIC(XORTO),
+				STRMAPASM_BASIC(INVTO),
+				STRMAPASM_BASIC(RSHTO),
+				STRMAPASM_BASIC(LSHTO),
+				STRMAPASM_BASIC(ADD),
+				STRMAPASM_BASIC(ADDIF),
+				STRMAPASM_BASIC(ADDFI),
+				STRMAPASM_BASIC(ADDF),
+				STRMAPASM_BASIC(ADDSTRI),
+				STRMAPASM_BASIC(ADDSTRF),
+				STRMAPASM_BASIC(ADDSTR),
+				STRMAPASM_BASIC(ADDSTRV2),
+				STRMAPASM_BASIC(ADDSTRV3),
+				STRMAPASM_BASIC(ADDSTRV4),
+				STRMAPASM_BASIC(ADDV2),
+				STRMAPASM_BASIC(ADDV3),
+				STRMAPASM_BASIC(ADDV4),
+				STRMAPASM_BASIC(ADDMAT2),
+				STRMAPASM_BASIC(ADDMAT3),
+				STRMAPASM_BASIC(ADDMAT4),
+				STRMAPASM_BASIC(SUB),
+				STRMAPASM_BASIC(SUBIF),
+				STRMAPASM_BASIC(SUBFI),
+				STRMAPASM_BASIC(SUBF),
+				STRMAPASM_BASIC(SUBV2),
+				STRMAPASM_BASIC(SUBV3),
+				STRMAPASM_BASIC(SUBV4),
+				STRMAPASM_BASIC(SUBMAT2),
+				STRMAPASM_BASIC(SUBMAT3),
+				STRMAPASM_BASIC(SUBMAT4),
+				STRMAPASM_BASIC(MUL),
+				STRMAPASM_BASIC(MULIF),
+				STRMAPASM_BASIC(MULIV2),
+				STRMAPASM_BASIC(MULIV3),
+				STRMAPASM_BASIC(MULIV4),
+				STRMAPASM_BASIC(MULIMAT2),
+				STRMAPASM_BASIC(MULIMAT3),
+				STRMAPASM_BASIC(MULIMAT4),
+				STRMAPASM_BASIC(MULFI),
+				STRMAPASM_BASIC(MULF),
+				STRMAPASM_BASIC(MULFV2),
+				STRMAPASM_BASIC(MULFV3),
+				STRMAPASM_BASIC(MULFV4),
+				STRMAPASM_BASIC(MULFMAT2),
+				STRMAPASM_BASIC(MULFMAT3),
+				STRMAPASM_BASIC(MULFMAT4),
+				STRMAPASM_BASIC(MULV2),
+				STRMAPASM_BASIC(MULV3),
+				STRMAPASM_BASIC(MULV4),
+				STRMAPASM_BASIC(MULV2F),
+				STRMAPASM_BASIC(MULV3F),
+				STRMAPASM_BASIC(MULV4F),
+				STRMAPASM_BASIC(MULV2I),
+				STRMAPASM_BASIC(MULV3I),
+				STRMAPASM_BASIC(MULV4I),
+				STRMAPASM_BASIC(MULMAT2V2),
+				STRMAPASM_BASIC(MULMAT3V3),
+				STRMAPASM_BASIC(MULMAT4V4),
+				STRMAPASM_BASIC(MULMAT2),
+				STRMAPASM_BASIC(MULMAT3),
+				STRMAPASM_BASIC(MULMAT4),
+				STRMAPASM_BASIC(MULMAT2F),
+				STRMAPASM_BASIC(MULMAT3F),
+				STRMAPASM_BASIC(MULMAT4F),
+				STRMAPASM_BASIC(DIV),
+				STRMAPASM_BASIC(DIVIF),
+				STRMAPASM_BASIC(DIVFI),
+				STRMAPASM_BASIC(DIVF),
+				STRMAPASM_BASIC(DIVV2),
+				STRMAPASM_BASIC(DIVV3),
+				STRMAPASM_BASIC(DIVV4),
+				STRMAPASM_BASIC(DIVV2F),
+				STRMAPASM_BASIC(DIVV3F),
+				STRMAPASM_BASIC(DIVV4F),
+				STRMAPASM_BASIC(DIVV2I),
+				STRMAPASM_BASIC(DIVV3I),
+				STRMAPASM_BASIC(DIVV4I),
+				STRMAPASM_BASIC(DIVMAT2),
+				STRMAPASM_BASIC(DIVMAT3),
+				STRMAPASM_BASIC(DIVMAT4),
+				STRMAPASM_BASIC(MOD),
+				STRMAPASM_BASIC(LSH),
+				STRMAPASM_BASIC(RSH),
+				STRMAPASM_BASIC(SCMP),
+				STRMAPASM_BASIC(SCMPIF),
+				STRMAPASM_BASIC(SCMPFI),
+				STRMAPASM_BASIC(SCMPF),
+				STRMAPASM_BASIC(LCMP),
+				STRMAPASM_BASIC(LCMPIF),
+				STRMAPASM_BASIC(LCMPFI),
+				STRMAPASM_BASIC(LCMPF),
+				STRMAPASM_BASIC(SECMP),
+				STRMAPASM_BASIC(SECMPIF),
+				STRMAPASM_BASIC(SECMPFI),
+				STRMAPASM_BASIC(SECMPF),
+				STRMAPASM_BASIC(LECMP),
+				STRMAPASM_BASIC(LECMPIF),
+				STRMAPASM_BASIC(LECMPFI),
+				STRMAPASM_BASIC(LECMPF),
+				STRMAPASM_BASIC(ICMP),
+				STRMAPASM_BASIC(ICMPIF),
+				STRMAPASM_BASIC(ICMPSTR),
+				STRMAPASM_BASIC(ICMPFI),
+				STRMAPASM_BASIC(ICMPF),
+				STRMAPASM_BASIC(ICMPV2),
+				STRMAPASM_BASIC(ICMPV3),
+				STRMAPASM_BASIC(ICMPV4),
+				STRMAPASM_BASIC(ICMPMAT2),
+				STRMAPASM_BASIC(ICMPMAT3),
+				STRMAPASM_BASIC(ICMPMAT4),
+				STRMAPASM_BASIC(NCMP),
+				STRMAPASM_BASIC(NCMPIF),
+				STRMAPASM_BASIC(NCMPSTR),
+				STRMAPASM_BASIC(NCMPFI),
+				STRMAPASM_BASIC(NCMPF),
+				STRMAPASM_BASIC(NCMPV2),
+				STRMAPASM_BASIC(NCMPV3),
+				STRMAPASM_BASIC(NCMPV4),
+				STRMAPASM_BASIC(NCMPMAT2),
+				STRMAPASM_BASIC(NCMPMAT3),
+				STRMAPASM_BASIC(NCMPMAT4),
+				STRMAPASM_BASIC(AND),
+				STRMAPASM_BASIC(OR),
+				STRMAPASM_BASIC(XOR),
+				STRMAPASM_BASIC(LOGICAND),
+				STRMAPASM_BASIC(LOGICOR),
 
 
-			STRMAPASM(POP),
-			STRMAPASM(MARKBP),
-			STRMAPASM(FUNCTIONRET)
 
+				STRMAPASM_BASIC_UN(PUSH),
+				STRMAPASM_BASIC_UN(PUSHIF),
+				STRMAPASM_BASIC_UN(PUSHFI),
+				STRMAPASM_BASIC_UN(PUSHF),
+				STRMAPASM_BASIC_UN(PUSHV2),
+				STRMAPASM_BASIC_UN(PUSHV3),
+				STRMAPASM_BASIC_UN(PUSHV4),
+				STRMAPASM_BASIC_UN(PUSHMAT2),
+				STRMAPASM_BASIC_UN(PUSHMAT3),
+				STRMAPASM_BASIC_UN(PUSHMAT4),
+				STRMAPASM_BASIC_UN(PUSHSTR),
+				STRMAPASM_BASIC_UN(NOT),
+				STRMAPASM_BASIC_UN(NOTF),
+				STRMAPASM_BASIC_UN(INV),
 
 		};
 
@@ -1155,7 +1176,6 @@ namespace SylvanLanguage {
 
 	private:
 		unsigned short AsmIdx = 0x8000;
-
 	};
 
 
@@ -1165,12 +1185,6 @@ namespace SylvanLanguage {
 		CompilerConfig* mConfig;
 
 		inline D87AssemblyWriter(AssemblyData* AsmData, CompilerConfig* cfg) : data(AsmData), mConfig(cfg) {}
-
-		inline void MODULE_DEP(std::string& path) {
-			data->AddValue<unsigned short>((unsigned short)ESlgd87Asm::MODULE_DEP);
-			data->AddString(path);
-		}
-
 		//二元运算符 和 赋值
 
 		inline bool BIN_OPERATE(const std::string& ASM, const std::string& A, const std::string& B,
@@ -1182,15 +1196,42 @@ namespace SylvanLanguage {
 			long long conLLA, long long conLLB,
 			double conDA, double conDB,
 			std::string conSA, std::string conSB) {
-			auto it = FindAsm(ASM);
+
+			std::string STRASM = ASM;
+			if (regA != -1) {
+				STRASM += "_R";
+			}
+			else if (AModulePath != "") {
+				STRASM += "_G";
+			}
+			else if (constTypeA != 0) {
+				return false;
+			}
+			else {
+				STRASM += "_L";
+			}
+
+			if (regB != -1) {
+				STRASM += "_R";
+			}
+			else if (BModulePath != "") {
+				STRASM += "_G";
+			}
+			else if (constTypeB != 0) {
+				STRASM += "_C";
+			}
+			else {
+				STRASM += "_L";
+			}
+
+			auto it = FindAsm(STRASM);
+
 			if (it.has_value()) {
 				data->AddValue<unsigned short>((unsigned short)it.value());
-				std::cout << ASM << " ";
-				if (regA != -1) {
-					data->AddValue<unsigned char>((unsigned char)0x02);
+				std::cout << STRASM << " ";
+				if (regA != -1) {  // 寄存器
 					data->AddValue<unsigned char>(regA);
 
-					std::cout << "0x02" << " ";
 					if (regA == 127) {
 						std::cout << regA << "(RET), ";
 					}
@@ -1198,39 +1239,21 @@ namespace SylvanLanguage {
 						std::cout << regA << ", ";
 					}
 				}
-				else if (AModulePath != "") {
-					data->AddValue<unsigned char>((unsigned char)0x01);
+				else if (AModulePath != "") { //全局变量
 					data->AddString(AModulePath);
 					data->AddString(A);
 
-					std::cout << "0x01" << " ";
 					std::cout << AModulePath << " ";
 					std::cout << A << " ";
 					std::cout << memberOffestA << ", ";
 				}
-				else if (constTypeA != 0) {
-
-					data->AddValue<unsigned char>((unsigned char)0x04);
-					std::cout << "0x04 ";
-					if (constTypeA == 1) {
-						data->AddValue<long long>(conLLA);
-						printf("%lld, ", conLLA);
-					}
-					else if (constTypeA == 2) {
-						data->AddValue<double>(conDA);
-						printf("%llf, ", conDA);
-					}
-					else if (constTypeA == 3) {
-						data->AddString(conSA);
-						printf("%s, ", conSA.c_str());
-					}
+				else if (constTypeA != 0) { //常量
+					return false;
 				}
-				else {
-					data->AddValue<unsigned char>((unsigned char)0x00);
+				else {//局部变量(栈上变量)
 					data->AddValue<int>(offestA + memberOffestA);
 					data->AddValue<unsigned short>(memberOffestA);
 
-					std::cout << "0x00 ";
 					std::cout << offestA << "+";
 					std::cout << memberOffestA << "=";
 					std::cout << offestA + memberOffestA << ", ";
@@ -1239,10 +1262,8 @@ namespace SylvanLanguage {
 
 				//B
 				if (regB != -1) {
-					data->AddValue<unsigned char>((unsigned char)0x02);
 					data->AddValue<unsigned char>(regB);
 
-					std::cout << "0x02" << " ";
 					if (regB == 127) {
 						std::cout << regB << "(RET)\n";
 					}
@@ -1251,20 +1272,17 @@ namespace SylvanLanguage {
 					}
 				}
 				else if (BModulePath != "") {
-					data->AddValue<unsigned char>((unsigned char)0x01);
+
 					data->AddString(BModulePath);
 					data->AddString(B);
 					data->AddValue<unsigned short>(memberOffestB);
 
-					std::cout << "0x01" << " ";
 					std::cout << BModulePath << " ";
 					std::cout << B << " ";
 					std::cout << memberOffestB << "\n";
 				}
 				else if (constTypeB != 0) {
 
-					data->AddValue<unsigned char>((unsigned char)0x04);
-					std::cout << "0x04 ";
 					if (constTypeB == 1) {
 						data->AddValue<long long>(conLLB);
 						std::cout << conLLB << "\n";
@@ -1280,10 +1298,8 @@ namespace SylvanLanguage {
 					}
 				}
 				else {
-					data->AddValue<unsigned char>((unsigned char)0x00);
 					data->AddValue<int>(offestB + memberOffestB);
 
-					std::cout << "0x00 ";
 					std::cout << offestB << "+";
 					std::cout << memberOffestB << "=";
 					std::cout << offestB + memberOffestB << "\n";
@@ -1291,20 +1307,40 @@ namespace SylvanLanguage {
 
 				return true;
 			}
+			else {
+				std::cout << "Error: Can not Find Asm :  " << STRASM << "\n";
+			}
 			return false;
 		}
 
 
 		//一元运算符
 		inline bool UNARY_OPERATE(const std::string& ASM, const std::string& A, const std::string& AModulePath, int offestA, unsigned short memberOffestA, short regA, int constType, long long conLL, double conD, std::string conS) {
-			auto it = FindAsm(ASM);
+
+			std::string STRASM = ASM;
+			if (regA != -1) {
+				STRASM += "_R";
+			}
+			else if (AModulePath != "") {
+				STRASM += "_G";
+			}
+			else if (constType != 0) {
+				STRASM += "_C";
+			}
+			else {
+				STRASM += "_L";
+			}
+
+
+			auto it = FindAsm(STRASM);
 			if (it.has_value()) {
 				data->AddValue<unsigned short>((unsigned short)it.value());
-				std::cout << ASM << " ";
-				if (regA != -1) {
-					data->AddValue<unsigned char>((unsigned char)0x02);
+				std::cout << STRASM << " ";
+				if (regA != -1) { // 寄存器
+
 					data->AddValue<unsigned char>(regA);
-					std::cout << "0x02" << " ";
+
+
 					if (regA == 127) {
 						std::cout << regA << "(RET)\n";
 					}
@@ -1312,24 +1348,21 @@ namespace SylvanLanguage {
 						std::cout << regA << "\n";
 					}
 				}
-				else if (AModulePath != "") {
-					data->AddValue<unsigned char>((unsigned char)0x01);
+				else if (AModulePath != "") { //全局变量
+
 					data->AddString(AModulePath);
 					data->AddString(A);
 					data->AddValue<unsigned short>(memberOffestA);
-					std::cout << "0x01" << " ";
+
 					std::cout << AModulePath << " ";
 					std::cout << A << " ";
 					std::cout << memberOffestA << "\n";
 				}
-				else if (constType != 0) {
+				else if (constType != 0) { // 常量
 
-					data->AddValue<unsigned char>((unsigned char)0x04);
-					std::cout << "0x04 ";
 					if (constType == 1) {
 						data->AddValue<long long>(conLL);
 						printf("%lld\n", conLL);
-
 					}
 					else if (constType == 2) {
 						data->AddValue<double>(conD);
@@ -1340,11 +1373,9 @@ namespace SylvanLanguage {
 						printf("%s\n", conS.c_str());
 					}
 				}
-				else {
-					data->AddValue<unsigned char>((unsigned char)0x00);
+				else { // 局部变量
 					data->AddValue<int>(offestA + memberOffestA);
 
-					std::cout << "0x00 ";
 					std::cout << offestA << "+";
 					std::cout << memberOffestA << "=";
 					std::cout << offestA + memberOffestA << "\n";
@@ -1352,7 +1383,21 @@ namespace SylvanLanguage {
 
 				return true;
 			}
+			else {
+				std::cout << "Error: Can not Find Asm :  " << STRASM << "\n";
+			}
 			return false;
+		}
+
+		inline void POP_STR(int offest) {
+			auto it = FindAsm("POPSTR");
+			if (it.has_value()) {
+				std::cout << "POPSTR ";
+				data->AddValue<unsigned short>((unsigned short)it.value());
+				data->AddValue<int>(offest);
+
+				std::cout << offest << "\n";
+			}
 		}
 
 		inline bool CALL_INLINE(const std::string& functionName) {
@@ -1574,19 +1619,6 @@ namespace SylvanLanguage {
 			{"matrix3x3", 72},
 			{"matrix4x4", 128},
 		};
-
-		static inline std::unordered_map<std::string, e_SlgType> TypeAsm{
-			{"int",    e_SlgType::INT,},
-			{"float",  e_SlgType::FLOAT,},
-			{"string", e_SlgType::STRING,},
-			{"vector2",e_SlgType::VECTOR2},
-			{"vector3",e_SlgType::VECTOR3},
-			{"vector4",e_SlgType::VECTOR4},
-			{"matrix2x2",e_SlgType::MATRIX2X2},
-			{"matrix3x3",e_SlgType::MATRIX3X3},
-			{"matrix4x4",e_SlgType::MATRIX4X4}
-		};
-
 
 		// op A = B 最后一个汇编指令的字符串
 
