@@ -203,17 +203,37 @@ namespace SylvanLanguage {
 			return *(_Ty*)mem;
 		}
 
-		inline bool IsRegister() {
+		inline double GetFloat(int& CS) {
 
 		}
 
-		inline bool GetFloat() {
-
+		inline long long GetInt(int& CS) {
+			*(unsigned char*)(AsmData + CS);
+			CS += 8;
 		}
 
-		inline bool IsGVar() {
-
+		inline long long GetIntFromConst(int& CS) {
+			long long res = *(long long*)(AsmData + CS);
+			CS += sizeof(long long);
+			return res;
 		}
+
+		inline long long GetIntFromReg(int& CS) {
+			*(unsigned char*)(AsmData + CS);
+			CS += 8;
+		}
+
+		inline long long GetIntFromLVar(int& CS) {
+			*(unsigned char*)(AsmData + CS);
+			CS += 8;
+		}
+
+		inline long long GetIntFromGVar(int& CS) {
+			*(unsigned char*)(AsmData + CS);
+			CS += 8;
+		}
+
+
 
 		//0 局部变量(栈)， 1全局变量， 2寄存器， 4常量
 		inline void GetVal(int CS) {
